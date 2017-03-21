@@ -3,6 +3,7 @@ package algo.ifss.node;
 import java.io.Serializable;
 
 public class NodeMessage2 implements Serializable {
+		private static final long serialVersionUID = 2L;
     public int sender;
     public int seq;
     

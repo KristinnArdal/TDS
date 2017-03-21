@@ -6,7 +6,7 @@ import algo.ifss.node.NodeRunner2;
 
 public class TDSImproved implements Runnable{
     
-    private static boolean done;
+    private boolean done;
     private int nnodes;
     private NodeRunner2[] nodeRunners;
     private Network2 network;

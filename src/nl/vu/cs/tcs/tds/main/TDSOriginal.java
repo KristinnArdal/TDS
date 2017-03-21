@@ -6,7 +6,7 @@ import algo.ofss.node.NodeRunner1;
 
 public class TDSOriginal implements Runnable { 
 	
-	private static boolean done;
+	private boolean done;
 	private NodeRunner1[] nodeRunners;
 	private Network1 network;
 	private int nnodes;
