@@ -52,7 +52,7 @@ public class TDSStaticTree implements Runnable {
 		network.waitForAllNodes();
 		waitTillDone();
 		network.killNodes();
-		TDS.instance().setDone(1);
+		TDS.instance().setDone(4);
 	}
 	
 	public synchronized void announce(){
