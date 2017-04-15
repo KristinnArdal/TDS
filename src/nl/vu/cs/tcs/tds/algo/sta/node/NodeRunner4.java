@@ -5,6 +5,7 @@ import java.util.Random;
 import ibis.util.ThreadPool;
 import util.Options;
 import java.util.Vector;
+import java.util.Collections;
 import main.TDS;
 import performance.PerformanceLogger;
 import algo.sta.network.Network4;
@@ -31,11 +32,13 @@ public class NodeRunner4 implements Runnable {
 	private boolean mustStop = false;
 
 	// message variables
+	private final int MAX_DELAY = 50;
 	private boolean owned = false;
 	private int ownedBy = -1;
 	private Vector<Integer> rAckNext;
 	private Vector<Integer> ownedNodes;
 	private Vector<Integer> runningChildren;
+	private Vector<Integer> nodes;
 
 	// counter needed for echo algorithm
 	private int numberOfAcks = 0;
@@ -49,6 +52,12 @@ public class NodeRunner4 implements Runnable {
 		this.rAckNext = new Vector<Integer>();
 		this.ownedNodes = new Vector<Integer>();
 		this.runningChildren = new Vector<Integer>();
+		this.nodes = new Vector<Integer>();
+
+		for (int i = 0; i < nnodes; i++) {
+			nodes.add(i);
+		}
+		Collections.shuffle(nodes);
 
 		Thread t = new Thread(this);
 		t.start();
@@ -115,7 +124,13 @@ public class NodeRunner4 implements Runnable {
 
 	// Not used at the moment
 	public synchronized void sendMessage(int node, int type) {
-		writeString("send a message to " + node);
+		int delay = random.nextInt(MAX_DELAY);
+		try {
+			Thread.sleep(delay);
+		} catch (InterruptedException e) {
+			// ignore
+		}
+		//writeString("send a message to " + node);
 		network.sendMessage(node, new Message(this.nodeID, type));
 	}
 
@@ -140,7 +155,7 @@ public class NodeRunner4 implements Runnable {
 		if (sender == 0 && type == Message.E_ACCEPT) {
 			// start doing work
 			writeString("Echo algorithm finished");
-			final int delay = random.nextInt(50);
+			final int delay = random.nextInt(MAX_DELAY);
 			ThreadPool.createNew(new Runnable() {
 				@Override
 				public void run() {
@@ -155,26 +170,35 @@ public class NodeRunner4 implements Runnable {
 			return;
 		}
 
+		int delay = random.nextInt(MAX_DELAY);
 
 		switch (type) { 
 			case Message.E_PROPOSE: 
 				if (this.hasParent()) {
 					// send E_REJECT to the sender 
-					Message reject = new Message(this.nodeID, Message.E_REJECT); 
-					network.sendMessage(sender, reject); 
+					//Message reject = new Message(this.nodeID, Message.E_REJECT); 
+					//network.sendMessage(sender, reject); 
+					this.sendMessage(sender, Message.E_REJECT);
 				}
 				else {
-					// send E_PROPOSE to all other nodes 
+					// send E_PROPOSE to all other nodes with a small dealy
 					this.setParent(sender);
 					writeString(sender + " set as parent");
-					Message propose = new Message(this.nodeID, Message.E_PROPOSE);
-					for (int i = 0; i < nnodes; i++) {
+					//Message propose = new Message(this.nodeID, Message.E_PROPOSE);
+					for (Integer i : nodes) {
 						if (i == sender || i == this.nodeID) {
 							this.numberOfAcks++;
 							continue;
 						}
 						else {
-							network.sendMessage(i, propose);
+							//delay = random.nextInt(MAX_DELAY);
+							//try {
+							//	Thread.sleep(delay);
+							//} catch (InterruptedException e) {
+							//	//ignore
+							//}
+							//network.sendMessage(i, propose);
+							this.sendMessage(i, Message.E_PROPOSE);
 						}
 					}
 				}
@@ -184,16 +208,18 @@ public class NodeRunner4 implements Runnable {
 				writeString(sender + " became child");
 				this.numberOfAcks++;
 				if (this.numberOfAcks == nnodes) {
-					Message accept = new Message(this.nodeID, Message.E_ACCEPT);
-					network.sendMessage(this.getParent(), accept);
+					//Message accept = new Message(this.nodeID, Message.E_ACCEPT);
+					//network.sendMessage(this.getParent(), accept);
+					this.sendMessage(this.getParent(), Message.E_ACCEPT);
 				}
 				break; 
 			case Message.E_REJECT: 
-				writeString("reject message from " + sender);
+				//writeString("reject message from " + sender);
 				this.numberOfAcks++;
 				if (this.numberOfAcks == nnodes) {
-					Message accept = new Message(this.nodeID, Message.E_ACCEPT);
-					network.sendMessage(this.getParent(), accept);
+					//Message accept = new Message(this.nodeID, Message.E_ACCEPT);
+					//network.sendMessage(this.getParent(), accept);
+					this.sendMessage(this.getParent(), Message.E_ACCEPT);
 				}
 				break; 
 			case Message.M_S: 
@@ -203,14 +229,16 @@ public class NodeRunner4 implements Runnable {
 				if (this.isStopped()) {
 					this.setRunning();
 
-					Message resume = new Message(this.nodeID, Message.R_S);
-					network.sendMessage(this.getParent(), resume);
+					//Message resume = new Message(this.nodeID, Message.R_S);
+					//network.sendMessage(this.getParent(), resume);
+					this.sendMessage(this.getParent(), Message.R_S);
 					this.owned = true;
 					ownedBy = sender;
 				}
 				else {
-					Message ack = new Message(this.nodeID, Message.M_ACK);
-					network.sendMessage(sender, ack);
+					//Message ack = new Message(this.nodeID, Message.M_ACK);
+					//network.sendMessage(sender, ack);
+					this.sendMessage(sender, Message.M_ACK);
 				}
 				break; 
 			case Message.M_ACK: 
@@ -223,25 +251,29 @@ public class NodeRunner4 implements Runnable {
 				runningChildren.add(sender);
 				if (this.isStopped()) {
 					this.setRunning();
-					Message resume = new Message(this.nodeID, Message.R_S);
-					network.sendMessage(this.getParent(), resume);
+					//Message resume = new Message(this.nodeID, Message.R_S);
+					//network.sendMessage(this.getParent(), resume);
+					this.sendMessage(this.getParent(), Message.R_S);
 					rAckNext.add(sender);
 				}
 				else {
-					Message rAck = new Message(this.nodeID, Message.R_ACK);
-					network.sendMessage(sender, rAck);
+					//Message rAck = new Message(this.nodeID, Message.R_ACK);
+					//network.sendMessage(sender, rAck);
+					this.sendMessage(sender, Message.R_ACK);
 				}
 				break; 
 			case Message.R_ACK: 
 				if (owned) {
-					Message mAck = new Message(this.nodeID, Message.M_ACK);
-					network.sendMessage(ownedBy, mAck);
+					//Message mAck = new Message(this.nodeID, Message.M_ACK);
+					//network.sendMessage(ownedBy, mAck);
+					this.sendMessage(ownedBy, Message.M_ACK);
 					this.owned = false;
 					ownedBy = -1;
 				}
-				Message rAck = new Message(this.nodeID, Message.R_ACK);
+				//Message rAck = new Message(this.nodeID, Message.R_ACK);
 				for (int nextNode : rAckNext) {
-					network.sendMessage(nextNode, rAck);
+					//network.sendMessage(nextNode, rAck);
+					this.sendMessage(nextNode, Message.R_ACK);
 				}
 				rAckNext.clear();
 				break; 
@@ -260,7 +292,7 @@ public class NodeRunner4 implements Runnable {
 			this.setStopped();
 			writeString("Thread stopped");
 			if (this.isRoot()) {
-				writeString("Root stopped");
+				writeString("TERMINATION DECLARED!");
 				network.killNodes();
 				network.announce();
 			}
@@ -307,7 +339,10 @@ public class NodeRunner4 implements Runnable {
 			}
 			writeString("becoming active");
 			activity();
-			writeString("becoming passive");
+			synchronized(this) {
+				this.setIdle();
+				writeString("becoming passive");
+			}
 			update();
 		}
 	}
@@ -344,12 +379,11 @@ public class NodeRunner4 implements Runnable {
 				int target = network.selectTarget(nodeID);
 				//Message m = new Message(this.nodeID, Message.M_S);
 				synchronized(this) {
-					sendMessage(target, Message.M_S);
+					this.sendMessage(target, Message.M_S);
 					// This needs to be synchronized since we can be working with ownedNodes elsewhere
 					ownedNodes.add(target);
 				}
 			}
 		}
-		this.setIdle();
 	}
 }
