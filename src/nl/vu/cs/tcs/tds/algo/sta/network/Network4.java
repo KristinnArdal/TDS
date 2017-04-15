@@ -13,6 +13,7 @@ public class Network4 {
 	private final int nnodes;
 	private final NodeRunner4[] nodeRunners;
 	private int nodeCount = 0;
+	private int DELAY_MAX = 50;
 	private Random random = new Random();
 	protected long lastPassive;
 
@@ -31,7 +32,7 @@ public class Network4 {
 	}
 
 	public void sendMessage(final int destination, final Message message) {
-		final int delay = random.nextInt(50);
+		final int delay = random.nextInt(DELAY_MAX);
 		ThreadPool.createNew(new Runnable() {
 			@Override
 			public void run() {
