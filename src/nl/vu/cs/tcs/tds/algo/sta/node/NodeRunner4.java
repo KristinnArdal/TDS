@@ -86,6 +86,7 @@ public class NodeRunner4 implements Runnable {
 
 	// Set and get methods for idle variable
 	public synchronized void setIdle() {
+		network.registerIdle(this.nodeID);
 		this.idle = true;
 	}
 

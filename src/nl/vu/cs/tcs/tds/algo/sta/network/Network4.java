@@ -15,7 +15,12 @@ public class Network4 {
 	private int nodeCount = 0;
 	private int DELAY_MAX = 50;
 	private Random random = new Random();
-	protected long lastPassive;
+	protected long lastIdle;
+
+
+	// performance counters
+	private volatile int nrBMessages = 0; // basic messages
+	private volatile int nrCMessages = 0; // control messages
 
 	public Network4(int nnodes) {
 		this.nnodes = nnodes;
@@ -31,7 +36,38 @@ public class Network4 {
 		}
 	}
 
+	public void registerIdle(int NodeID) {
+		ThreadPool.createNew(new Runnable() {
+			@Override
+			public void run() {
+				synchronized (Network4.class) {
+					lastIdle = System.currentTimeMillis();
+				}
+			}
+		}, "IdleRegister");
+	}
+		
+
 	public void sendMessage(final int destination, final Message message) {
+		// check the type of the message and count it
+		switch (message.getType()) {
+			case Message.E_PROPOSE:
+			case Message.E_ACCEPT:
+			case Message.E_REJECT:
+				break;
+			case Message.M_S:
+				nrBMessages += 1;
+				nrCMessages += 1;
+				break;
+			case Message.M_ACK:
+			case Message.R_S:
+			case Message.R_ACK:
+			case Message.STOP:
+				nrCMessages += 1;
+				break;
+			default:
+				break;
+		}
 		final int delay = random.nextInt(DELAY_MAX);
 		ThreadPool.createNew(new Runnable() {
 			@Override
@@ -82,6 +118,9 @@ public class Network4 {
 	}
 
 	public void announce() {
+		TDS.writeString(4, " Network:\tTermination declared " + (System.currentTimeMillis() - this.lastIdle) + " milliseconds after last node became passive");
+		TDS.writeString(4, " Network:\tNumber of basic messages: " + this.nrBMessages);
+		TDS.writeString(4, " Network:\tNumber of control messages: " + this.nrCMessages);
 		ThreadPool.createNew(new Runnable() {
 			@Override
 			public void run() {
