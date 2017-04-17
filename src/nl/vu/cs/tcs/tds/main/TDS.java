@@ -52,7 +52,7 @@ public class TDS {
 		else if(version == 3)
 			cp.print("[   FTS ]", Attribute.BOLD, FColor.WHITE, BColor.BLACK);
 		else if(version == 4)
-			cp.print("[   STA ]", Attribute.BOLD, FColor.WHITE, BColor.BLACK);
+			cp.print("[   STA ]", Attribute.BOLD, FColor.WHITE, BColor.MAGENTA);
 		else if(version == 0){//warning
 			cp.print("[  INFO ]", Attribute.BOLD, FColor.YELLOW, BColor.GREEN);
 			cp.clear();
@@ -70,15 +70,11 @@ public class TDS {
 			return;
 		}
 		if(s.contains("Termination")){
-			if(s.charAt(9) == '\t'){
-				cp.print(s.substring(0,10), Attribute.BOLD, FColor.RED, BColor.YELLOW);
-				cp.clear();
-				cp.print(s.substring(10));
-			}else{
-				cp.print(s.substring(0,11), Attribute.BOLD, FColor.RED, BColor.YELLOW);
-				cp.clear();
-				cp.print(s.substring(11));
-			}
+			// We assume that the message is split with a tab
+			int tabPos = s.indexOf('\t');
+			cp.print(s.substring(0,tabPos+1), Attribute.BOLD, FColor.RED, BColor.YELLOW);
+			cp.clear();
+			cp.print(s.substring(tabPos+1));
 
 			cp.print("\n");
 		}else{
@@ -115,7 +111,7 @@ public class TDS {
 
 	private void waitAllDone(){
 		synchronized(this){
-			while(!(done[0] && done[1] && done[2])){
+			while(!(done[0] && done[1] && done[2] && done[3])){
 				try {
 					wait();
 				} catch (InterruptedException e) {
