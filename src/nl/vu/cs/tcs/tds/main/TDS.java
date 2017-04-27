@@ -1,7 +1,6 @@
 package main;
 
 import java.io.IOException;
-import java.util.ArrayList;
 
 import org.apache.log4j.PropertyConfigurator;
 import print.color.Ansi.Attribute;
@@ -16,6 +15,7 @@ public class TDS {
 	private TDSImproved tds2;
 	private TDSFaultTolerant tds3;
 	private TDSStaticTree tds4;
+	private TDSFTStaticTree tds5;
 	private static ColoredPrinter cp;
 	private static boolean[] done;
 
@@ -25,7 +25,7 @@ public class TDS {
 
 	private TDS(){
 		cp = new ColoredPrinter.Builder(1, false).build();
-		done = new boolean[4];
+		done = new boolean[5];
 	}
 
 	public static synchronized TDS instance(){
@@ -53,6 +53,8 @@ public class TDS {
 			cp.print("[   FTS ]", Attribute.BOLD, FColor.WHITE, BColor.BLACK);
 		else if(version == 4)
 			cp.print("[   STA ]", Attribute.BOLD, FColor.WHITE, BColor.MAGENTA);
+		else if(version == 5)
+			cp.print("[ FTSTA ]", Attribute.BOLD, FColor.WHITE, BColor.CYAN);
 		else if(version == 0){//warning
 			cp.print("[  INFO ]", Attribute.BOLD, FColor.YELLOW, BColor.GREEN);
 			cp.clear();
@@ -99,6 +101,8 @@ public class TDS {
 			tds3.announce();
 		else if(version == 4)
 			tds4.announce();
+		else if(version == 5)
+			tds5.announce();
 	}
 
 	public void setDone(int version){
@@ -111,7 +115,7 @@ public class TDS {
 
 	private void waitAllDone(){
 		synchronized(this){
-			while(!(done[0] && done[1] && done[2] && done[3])){
+			while(!(done[0] && done[1] && done[2] && done[3] && done[4])){
 				try {
 					wait();
 				} catch (InterruptedException e) {
@@ -127,13 +131,14 @@ public class TDS {
 			tds2 = new TDSImproved(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
 			tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
 			tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+			tds5 = new TDSFTStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
 			new Thread(tds1).start();
 			new Thread(tds2).start();
 			new Thread(tds3).start();
 			new Thread(tds4).start();
+			new Thread(tds5).start();
 		}else{//ugly but ok for now
-			done[0] = done[1] = done[2] = done[3] = true;
-			ArrayList<Runnable> tds = new ArrayList<Runnable>();
+			done[0] = done[1] = done[2] = done[3] = done[4] = true;
 			int version = Options.instance().get(Options.VERSION);
 			String versionString = String.valueOf(version);
 
@@ -158,6 +163,11 @@ public class TDS {
 				tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
 				done[3] = false;
 				new Thread(tds4).start();
+			}
+			if(versionString.contains("5") ){
+				tds5 = new TDSFTStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+				done[4] = false;
+				new Thread(tds5).start();
 			}
 		}
 
