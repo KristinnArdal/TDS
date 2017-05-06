@@ -232,8 +232,10 @@ public class NodeRunner5 implements Runnable {
 				}
 				break;
 			case Message.M_ACK:
-				writeString(sender + " ownership released");
-				ownedNodes.removeElement(sender);
+				if (ownedNodes.contains(sender)) {
+					writeString(sender + " ownership released");
+					ownedNodes.removeElement(sender);
+				}
 				//update();
 				break;
 			case Message.R_S:
@@ -273,16 +275,26 @@ public class NodeRunner5 implements Runnable {
 				break;
 			case Message.CONN_S: // always accept for now
 				children.add(sender);
+				runningChildren.add(sender);
 				sendMessage(sender, Message.CONN_ACK);
+				writeString(sender + " added as child");
 				break;
 			case Message.CONN_ACK:
-				parent = sender;
-				if (!isStopped()) {
-					sendMessage(parent, Message.R_S);
+				// parent assumes that node is active
+				if (isStopped()) {
+					sendMessage(parent, Message.STOP);
 				}
-				else if (waitingForAck) {
-					waitingForAck = false;
+				// same action as when receiving R_ACK
+				if (waitingForAck) { waitingForAck = false; }
+				if (owned) {
+					this.sendMessage(ownedBy, Message.M_ACK);
+					this.owned = false;
+					ownedBy = -1;
 				}
+				for (int nextNode : rAckNext) {
+					this.sendMessage(nextNode, Message.R_ACK);
+				}
+				rAckNext.clear();
 				break;
 			case Message.CONN_REJ:
 				break;
@@ -308,6 +320,11 @@ public class NodeRunner5 implements Runnable {
 			writeString("Thread stopped");
 			if (!this.isRoot()) {
 				this.sendMessage(this.parent, Message.STOP);
+			}
+			if (owned) {
+				this.sendMessage(ownedBy, Message.M_ACK);
+				this.owned = false;
+				this.ownedBy = -1;
 			}
 		}
 
@@ -431,7 +448,8 @@ public class NodeRunner5 implements Runnable {
 			if (runningChildren.contains(crashedNode)) { runningChildren.removeElement(crashedNode); }
 
 		}
-		if (ownedNodes.contains(crashedNode)) {
+		// node can appread multiple times in crashedNode
+		while (ownedNodes.contains(crashedNode)) {
 			ownedNodes.removeElement(crashedNode);
 		}
 		if (owned && ownedBy == crashedNode) { // node was owned by another node
@@ -446,8 +464,10 @@ public class NodeRunner5 implements Runnable {
 			this.parent = this.nodeID;
 		}
 		else if (this.parent == crashedNode) {
-			this.parent = -1;
-			sendMessage(this.calculateRoot(), Message.CONN_S);
+			this.parent = calculateRoot();
+			writeString("New parent: " + this.parent);
+			countSent = false;
+			sendMessage(this.parent, Message.CONN_S);
 			waitingForAck = true;
 		}
 		update();
