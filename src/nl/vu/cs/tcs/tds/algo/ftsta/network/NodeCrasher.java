@@ -2,10 +2,13 @@ package algo.ftsta.network;
 
 import java.util.ArrayList;
 import java.util.Arrays;
+import java.util.Collections;
 import java.util.Random;
 
 import ibis.util.ThreadPool;
+
 import util.Options;
+
 import main.TDS;
 
 public class NodeCrasher {
@@ -52,24 +55,18 @@ public class NodeCrasher {
 	}
 
 	private void notifyNodesRandomly(int crashedNode, int[] ignoreCrashed) throws NodeCrasherStopException{
-		ThreadPool.createNew(() -> {
-			try {
-				ArrayList<Integer> notified = new ArrayList<Integer>();
-				for (int n: ignoreCrashed)
-					notified.add(n);
-				while(notified.size() != nnodes && !shouldStop()) {
-					int notifyNext = random.nextInt(nnodes);
-					while (notified.contains(notifyNext)) // shuffle an array maybe instead?
-						notifyNext = random.nextInt(nnodes);
-					notified.add(notifyNext);
-					int delay = random.nextInt(1000);
-					try { Thread.sleep(delay); } catch (InterruptedException e) {}
-					network.sendCrashedMessage(notifyNext, crashedNode);
-				}
-			} catch (NodeCrasherStopException e) {
-				return;
-			}
-		}, "CrashNotifier");
+		ArrayList<Integer> toSend = new ArrayList<Integer>();
+		for (int i = 0; i < nnodes; i++) {
+			toSend.add(i);
+		}
+		Collections.shuffle(toSend);
+		for (int i: toSend) {
+			ThreadPool.createNew(() -> {
+				int delay = random.nextInt(5000);
+				try { Thread.sleep(delay); } catch (InterruptedException e) {}
+				network.sendCrashedMessage(i, crashedNode);
+			}, "CrashNotifier");
+		}
 	}
 
 	private boolean contains(int[] array, int value) {

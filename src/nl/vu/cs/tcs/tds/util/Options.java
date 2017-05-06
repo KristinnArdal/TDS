@@ -15,6 +15,7 @@ public class Options {
 	public static final int FLUSH_CSV = -8;
 	public static final int VERSION = -9;
 	public static final int CRASHED_NODES = -10;
+	public static final int MAX_NUM_MESSAGES = -11;
 	
 	public static final int DEFAULT_NUM_OF_NODES = 4;
 	public static final int MAXIMUM_NUM_OF_NODES = 1024;
@@ -29,6 +30,7 @@ public class Options {
 	public static final int DEFAULT_VERSION = 0;
 	private static final int[] ALLOWED_VERSIONS = {1,2,3, 12, 13, 21, 31, 23, 32, 123, 132, 213, 231, 312, 321, 4, 5};
 	public static final int DEFAULT_CRUSHED_NODES = 0;
+	public static final int DEFAULT_MAX_MESSAGES = -1;
 	
 	
 	
@@ -48,6 +50,7 @@ public class Options {
 		opts.add(new Option(Options.FLUSH_CSV, "-f", false, DEFAULT_CSV_FLUSH));
 		opts.add(new Option(Options.VERSION, "-ver", true, DEFAULT_VERSION));
 		opts.add(new Option(Options.CRASHED_NODES, "-c", true, DEFAULT_CRUSHED_NODES));
+		opts.add(new Option(Options.MAX_NUM_MESSAGES, "-m", true, DEFAULT_MAX_MESSAGES));
 	}
 	
 	public static Options instance(){
@@ -105,7 +108,12 @@ public class Options {
 		    }
 		        
 		}
-		
+		if(option == Options.MAX_NUM_MESSAGES){
+			if(value < 0 && value != -1) {
+				System.out.println("Maximum number of messages must be either -1 (disable) or greater than or equal to 0");
+				System.exit(1);
+			}
+		}
 	}
 	
 	private boolean contains(int[] array, int val){
@@ -142,6 +150,9 @@ public class Options {
 		if(option == Options.CRASHED_NODES){
 		    getOptByName("-c").setValue(value);
 		}
+		if(option == Options.MAX_NUM_MESSAGES){
+		    getOptByName("-m").setValue(value);
+		}
 		
 	}
 	
@@ -165,7 +176,9 @@ public class Options {
 		if(opt.equals("-ver"))
 			return Options.VERSION;
 		if(opt.equals("-c"))
-		    return Options.CRASHED_NODES;
+			return Options.CRASHED_NODES;
+		if(opt.equals("-m"))
+			return Options.MAX_NUM_MESSAGES;
 		throw new IllegalArgumentException("Invalid option: '" + opt + "'");	
 	}
 
@@ -234,6 +247,15 @@ public class Options {
 				        this.setOption(Options.CRASHED_NODES, Integer.parseInt(args[i+1]));
 				    }catch(Exception e){
 				        System.out.println("Invalid value for option '-c'");
+				        System.exit(1);
+				    }
+				    i++;
+				    break;
+				case Options.MAX_NUM_MESSAGES:
+				    try{
+				        this.setOption(Options.MAX_NUM_MESSAGES, Integer.parseInt(args[i+1]));
+				    }catch(Exception e){
+				        System.out.println("Invalid value for option '-m'");
 				        System.exit(1);
 				    }
 				    i++;

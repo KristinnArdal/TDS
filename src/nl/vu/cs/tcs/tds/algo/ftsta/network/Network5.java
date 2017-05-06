@@ -8,12 +8,13 @@ import ibis.util.ThreadPool;
 import main.TDS;
 
 import algo.ftsta.node.NodeRunner5;
-import algo.ftsta.node.FailureDetector;
+//import algo.ftsta.node.FailureDetector;
 import algo.ftsta.message.Message;
 
 public class Network5 {
 
 	private final int nnodes;
+	private final int max_messages;
 	private final NodeRunner5[] nodeRunners;
 	private final NodeCrasher nc;
 	//private final FailureDetector[] fds;
@@ -31,8 +32,9 @@ public class Network5 {
 	private volatile int nrBMessages = 0; // basic messages
 	private volatile int nrCMessages = 0; // control messages
 
-	public Network5(int nnodes) {
+	public Network5(int nnodes, int max_messages) {
 		this.nnodes = nnodes;
+		this.max_messages = max_messages;
 		nodeRunners = new NodeRunner5[nnodes];
 		this.nc = new NodeCrasher(this, nnodes);
 		//this.fds = new FailureDetector[nnodes];
@@ -145,6 +147,10 @@ public class Network5 {
 			dest = random.nextInt(nnodes);
 		} while (dest == mynode);
 		return dest;
+	}
+
+	public boolean allowedToSend() {
+		return max_messages == -1 || nrBMessages < max_messages;
 	}
 
 	public void announce() {
