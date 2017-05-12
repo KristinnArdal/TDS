@@ -131,7 +131,7 @@ public class Network4 {
 			public void run() {
 				TDS.instance().announce(4);
 			}
-		}, "TDS_1");
+		}, "TDS_4");
 	}
 
 }

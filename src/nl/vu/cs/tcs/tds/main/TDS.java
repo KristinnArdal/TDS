@@ -16,6 +16,7 @@ public class TDS {
 	private TDSFaultTolerant tds3;
 	private TDSStaticTree tds4;
 	private TDSFTStaticTree tds5;
+	private TDSDijkstraScholten tds6;
 	private static ColoredPrinter cp;
 	private static boolean[] done;
 
@@ -25,7 +26,7 @@ public class TDS {
 
 	private TDS(){
 		cp = new ColoredPrinter.Builder(1, false).build();
-		done = new boolean[5];
+		done = new boolean[6];
 	}
 
 	public static synchronized TDS instance(){
@@ -55,6 +56,8 @@ public class TDS {
 			cp.print("[   STA ]", Attribute.BOLD, FColor.WHITE, BColor.MAGENTA);
 		else if(version == 5)
 			cp.print("[ FTSTA ]", Attribute.BOLD, FColor.WHITE, BColor.CYAN);
+		else if(version == 6)
+			cp.print("[    DS ]", Attribute.BOLD, FColor.WHITE, BColor.BLUE);
 		else if(version == 0){//warning
 			cp.print("[  INFO ]", Attribute.BOLD, FColor.YELLOW, BColor.GREEN);
 			cp.clear();
@@ -103,6 +106,8 @@ public class TDS {
 			tds4.announce();
 		else if(version == 5)
 			tds5.announce();
+		else if(version == 6)
+			tds6.announce();
 	}
 
 	public void setDone(int version){
@@ -115,7 +120,7 @@ public class TDS {
 
 	private void waitAllDone(){
 		synchronized(this){
-			while(!(done[0] && done[1] && done[2] && done[3] && done[4])){
+			while(!(done[0] && done[1] && done[2] && done[3] && done[4] && done[5])){
 				try {
 					wait();
 				} catch (InterruptedException e) {
@@ -132,13 +137,15 @@ public class TDS {
 			tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 			tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 			tds5 = new TDSFTStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
+			tds6 = new TDSDijkstraScholten(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 			new Thread(tds1).start();
 			new Thread(tds2).start();
 			new Thread(tds3).start();
 			new Thread(tds4).start();
 			new Thread(tds5).start();
+			new Thread(tds6).start();
 		}else{//ugly but ok for now
-			done[0] = done[1] = done[2] = done[3] = done[4] = true;
+			done[0] = done[1] = done[2] = done[3] = done[4] = done[5] = true;
 			int version = Options.instance().get(Options.VERSION);
 			String versionString = String.valueOf(version);
 
@@ -168,6 +175,11 @@ public class TDS {
 				tds5 = new TDSFTStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 				done[4] = false;
 				new Thread(tds5).start();
+			}
+			if(versionString.contains("6") ){
+				tds6 = new TDSDijkstraScholten(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
+				done[5] = false;
+				new Thread(tds6).start();
 			}
 		}
 
