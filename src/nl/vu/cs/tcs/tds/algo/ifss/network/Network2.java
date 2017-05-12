@@ -4,6 +4,7 @@ package algo.ifss.network;
 import java.util.Random;
 
 import ibis.util.ThreadPool;
+import main.TDS;
 import performance.PerformanceLogger;
 import algo.ifss.node.NodeMessage2;
 import algo.ifss.node.NodeRunner2;
@@ -13,19 +14,25 @@ import algo.ifss.probing.Prober2;
 public class Network2 {
     
     private final int nnodes;
+		private final int max_messages;
     private final NodeRunner2[] nodeRunners;
     private final Prober2[] probers;
     private Random random;
     private int nodeCount;
     protected long lastPassive;
     
+		private int nrBMessages;
+		private int nrCMessages;
     
-    public Network2(int nnodes){
+    public Network2(int nnodes, int max_messages){
         this.nnodes = nnodes;
+        this.max_messages = max_messages;
         nodeCount = 0;
         random = new Random();
         nodeRunners = new NodeRunner2[nnodes];
         probers = new Prober2[nnodes];
+				this.nrBMessages = 0;
+				this.nrCMessages = 0;
     }
     
     public synchronized void waitForAllNodes() {
@@ -54,6 +61,7 @@ public class Network2 {
     
     // Send message with random delay. Execute in separate thread to not delay the sender with it.
     public void sendMessage(final int dest, final NodeMessage2 nodeMessage) {
+        nrBMessages += 1;
         ThreadPool.createNew(() -> {
             int delay = random.nextInt(50);
             try { Thread.sleep(delay); } catch (InterruptedException e){}
@@ -69,6 +77,7 @@ public class Network2 {
     
     // Send the token and receive it after random delay. Execute in seperate thread to not delay the sender.
     public void sendProbeMessage(final int dest, final ProbeMessage2 probeMessage) {
+        nrCMessages += 1;
         ThreadPool.createNew(() -> {
             int delay = random.nextInt(50); //Maybe increase that delay as token is larger
             try { Thread.sleep(delay); } catch (InterruptedException e){}
@@ -96,6 +105,9 @@ public class Network2 {
         }
     }
     
+		public boolean allowedToSend() {
+			return max_messages == -1 || nrBMessages < max_messages;
+		}
     
     public void registerPassive() {
         ThreadPool.createNew(() -> {
@@ -111,5 +123,9 @@ public class Network2 {
         return this.lastPassive;
     }
 
+		public void printStatistics() {
+			TDS.writeString(2, " Network:\tNumber of basic messages:\t" + nrBMessages);
+			TDS.writeString(2, " Network:\tNumber of control messages:\t" + nrCMessages);
+		}
 
 }

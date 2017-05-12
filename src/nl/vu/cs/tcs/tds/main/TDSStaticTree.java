@@ -12,11 +12,11 @@ public class TDSStaticTree implements Runnable {
 	private int nnodes;
 	private long maxWait;
 	
-	public TDSStaticTree(int nnodes, long maxWait) {
+	public TDSStaticTree(int nnodes, long maxWait, int max_messages) {
 		this.nnodes = nnodes;
 		this.done = false;
 		this.nodeRunners = new NodeRunner4[nnodes];
-		this.network = new Network4(nnodes);
+		this.network = new Network4(nnodes, max_messages);
 		this.maxWait = maxWait;
 	}
 	

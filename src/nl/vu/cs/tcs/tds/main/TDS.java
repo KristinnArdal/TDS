@@ -127,10 +127,10 @@ public class TDS {
 
 	public void start(){
 		if(Options.instance().get(Options.VERSION) == 0){
-			tds1 = new TDSOriginal(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
-			tds2 = new TDSImproved(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
-			tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
-			tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+			tds1 = new TDSOriginal(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
+			tds2 = new TDSImproved(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
+			tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
+			tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 			tds5 = new TDSFTStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 			new Thread(tds1).start();
 			new Thread(tds2).start();
@@ -143,24 +143,24 @@ public class TDS {
 			String versionString = String.valueOf(version);
 
 			if(versionString.contains("1")){
-				tds1 = new TDSOriginal(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+				tds1 = new TDSOriginal(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 				done[0] = false;
 				new Thread(tds1).start();
 			}
 
 			if(versionString.contains("2")){
-				tds2 = new TDSImproved(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+				tds2 = new TDSImproved(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 				done[1] = false;
 				new Thread(tds2).start();
 			}
 
 			if(versionString.contains("3") ){
-				tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+				tds3 = new TDSFaultTolerant(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 				done[2] = false;
 				new Thread(tds3).start();
 			}
 			if(versionString.contains("4") ){
-				tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT));
+				tds4 = new TDSStaticTree(Options.instance().get(Options.NUM_OF_NODES), Options.instance().get(Options.MAX_WAIT), Options.instance().get(Options.MAX_NUM_MESSAGES));
 				done[3] = false;
 				new Thread(tds4).start();
 			}

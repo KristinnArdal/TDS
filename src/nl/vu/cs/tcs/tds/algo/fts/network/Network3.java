@@ -4,7 +4,11 @@ import java.util.HashSet;
 import java.util.Random;
 
 import ibis.util.ThreadPool;
+
+import main.TDS;
+
 import performance.PerformanceLogger;
+
 import algo.fts.node.FailureDetector;
 import algo.fts.node.NodeMessage3;
 import algo.fts.node.NodeRunner3;
@@ -14,6 +18,7 @@ import algo.fts.probing.Prober3;
 public class Network3 {
     
     private final int nnodes;
+		private final int max_messages;
     private final NodeRunner3[] nodeRunners;
     private final Prober3[] probers;
     private final NodeCrasher nc;
@@ -27,10 +32,12 @@ public class Network3 {
     
     protected long lastPassive;
     
+		private int nrBMessages;
+		private int nrCMessages;
     
-    
-    public Network3(int nnodes) {
+    public Network3(int nnodes, int max_messages) {
         this.nnodes = nnodes;
+		    this.max_messages = max_messages;
         this.nodeCount = 0;
         this.random = new Random();
         this.nodeRunners = new NodeRunner3[nnodes];
@@ -67,6 +74,7 @@ public class Network3 {
     }
     
     public void sendMessage(final int dest, final NodeMessage3 msg) {
+        nrBMessages += 1;
         if(!crashed.contains(dest)) {
             final int delay = random.nextInt(50);
             ThreadPool.createNew(() -> {
@@ -120,6 +128,10 @@ public class Network3 {
             }
         }, "PassiveRegister3");
     }
+
+		public boolean allowedToSend() {
+			return max_messages == -1 || nrBMessages < max_messages;
+		}
     
     public void registerPassive(int node){
         this.crashed.add(node);
@@ -145,6 +157,7 @@ public class Network3 {
     }
 
     public void sendProbeMessage(ProbeMessage3 token, int dest) {
+		    nrCMessages += 1;
         ThreadPool.createNew(() -> {
             int delay = random.nextInt(50);
             try { Thread.sleep(delay); } catch(InterruptedException e) {}
@@ -152,10 +165,9 @@ public class Network3 {
         }, "ProbeSender3");
     }
 
-
-
-    
-    
-    
+		public void printStatistics() {
+			TDS.writeString(3, " Network:\tNumber of basic messages:\t" + nrBMessages);
+			TDS.writeString(3, " Network:\tNumber of control messages:\t" + nrCMessages);
+		}
 
 }

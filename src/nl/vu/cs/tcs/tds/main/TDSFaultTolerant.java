@@ -14,11 +14,11 @@ public class TDSFaultTolerant implements Runnable{
     private long maxWait;
     
     
-    public TDSFaultTolerant(int nnodes, long maxWait) {
+    public TDSFaultTolerant(int nnodes, long maxWait, int max_messages) {
         this.nnodes = nnodes;
         this.done = false;
         this.nodeRunners = new NodeRunner3[nnodes];
-        this.network = new Network3(nnodes);
+        this.network = new Network3(nnodes, max_messages);
         this.maxWait = maxWait;
         
     }

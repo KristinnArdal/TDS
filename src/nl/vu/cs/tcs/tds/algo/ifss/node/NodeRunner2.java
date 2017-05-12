@@ -120,7 +120,7 @@ public class NodeRunner2 implements Runnable{
             
             int nMessages = random.nextInt(level) + (this.mynode == 0? 1 : 0);
             
-            for (int j = 0; j < nMessages; j++)
+            for (int j = 0; j < nMessages && network.allowedToSend(); j++)
                 sendMessage(network.selectTarget(mynode));
         }
     }

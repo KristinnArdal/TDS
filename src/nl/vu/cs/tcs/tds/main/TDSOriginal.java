@@ -12,11 +12,11 @@ public class TDSOriginal implements Runnable {
 	private int nnodes;
 	private long maxWait;
 	
-	public TDSOriginal(int nnodes, long maxWait) {
+	public TDSOriginal(int nnodes, long maxWait, int max_messages) {
 		this.nnodes = nnodes;
 		this.done = false;
 		this.nodeRunners = new NodeRunner1[nnodes];
-		this.network = new Network1(nnodes);
+		this.network = new Network1(nnodes, max_messages);
 		this.maxWait = maxWait;
 	}
 	

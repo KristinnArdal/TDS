@@ -91,6 +91,7 @@ public class Prober3 {
                 
                 long end = System.nanoTime();
                 PerformanceLogger.instance().addProcTime(3, end - start);
+								network.printStatistics();
                 TDS.instance().announce(3); 
                 return;
             }else {

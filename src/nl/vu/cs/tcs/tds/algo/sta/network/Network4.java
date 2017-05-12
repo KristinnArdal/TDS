@@ -11,19 +11,20 @@ import algo.sta.message.Message;
 public class Network4 {
 
 	private final int nnodes;
+	private final int max_messages;
 	private final NodeRunner4[] nodeRunners;
 	private int nodeCount = 0;
 	private int DELAY_MAX = 50;
 	private Random random = new Random();
 	protected long lastIdle;
 
-
 	// performance counters
 	private volatile int nrBMessages = 0; // basic messages
 	private volatile int nrCMessages = 0; // control messages
 
-	public Network4(int nnodes) {
+	public Network4(int nnodes, int max_messages) {
 		this.nnodes = nnodes;
+		this.max_messages = max_messages;
 		nodeRunners = new NodeRunner4[nnodes];
 	}
 
@@ -115,6 +116,10 @@ public class Network4 {
 			dest = random.nextInt(nnodes);
 		} while (dest == mynode);
 		return dest;
+	}
+
+	public boolean allowedToSend() {
+		return max_messages == -1 || nrBMessages < max_messages;
 	}
 
 	public void announce() {

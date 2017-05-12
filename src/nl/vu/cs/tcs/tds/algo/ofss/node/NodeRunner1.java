@@ -155,7 +155,7 @@ public class NodeRunner1 implements Runnable {
             int nMessages = random.nextInt(level) + (this.mynode == 0? 1:0);
             //int[] targets = activity.getTargets();
             
-            for (int j = 0; j < nMessages; j++) {
+            for (int j = 0; j < nMessages && network.allowedToSend(); j++) {
                int target = network.selectTarget(mynode);
                sendMessage(target);
             }

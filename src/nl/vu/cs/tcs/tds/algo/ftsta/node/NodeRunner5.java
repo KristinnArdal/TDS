@@ -315,17 +315,17 @@ public class NodeRunner5 implements Runnable {
 
 	private synchronized void update() {
 		// check if the node is allowed to stop
-		if (!this.isStopped() && runningChildren.isEmpty() && this.isIdle() && ownedNodes.isEmpty()) {
+		if (!this.isStopped() && runningChildren.isEmpty() && this.isIdle() && ownedNodes.isEmpty() && !owned) {
 			this.setStopped();
 			writeString("Thread stopped");
 			if (!this.isRoot()) {
 				this.sendMessage(this.parent, Message.STOP);
 			}
-			if (owned) {
-				this.sendMessage(ownedBy, Message.M_ACK);
-				this.owned = false;
-				this.ownedBy = -1;
-			}
+//			if (owned) {
+//				this.sendMessage(ownedBy, Message.M_ACK);
+//				this.owned = false;
+//				this.ownedBy = -1;
+//			}
 		}
 
 		// check if termination can be declared (only if root)

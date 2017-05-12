@@ -13,11 +13,11 @@ public class TDSImproved implements Runnable{
     private long maxWait;
     
     
-    public TDSImproved(int nnodes, long maxWait) {
+    public TDSImproved(int nnodes, long maxWait, int max_messages) {
         this.nnodes = nnodes;
         this.done = false;
         this.nodeRunners = new NodeRunner2[nnodes];
-        this.network = new Network2(nnodes);
+        this.network = new Network2(nnodes, max_messages);
         this.maxWait = maxWait;
     }
     

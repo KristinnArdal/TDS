@@ -14,6 +14,7 @@ import algo.ofss.probing.Prober1;
 public class Network1 {
 
     private final int nnodes;
+		private final int max_messages;
     private final NodeRunner1[] nodeRunners;
     private final Prober1[] probers;
     private int nodeCount = 0;
@@ -21,12 +22,17 @@ public class Network1 {
     protected long lastPassive;
     
     private int tokenLastVisited;
+		private int nrBMessages;
+		private int nrCMessages;
 
-    public Network1(int nnodes) {
+    public Network1(int nnodes, int max_messages) {
         this.nnodes = nnodes;
+				this.max_messages = max_messages;
         nodeRunners = new NodeRunner1[nnodes];
         probers = new Prober1[nnodes];
         this.tokenLastVisited = -1;
+				this.nrBMessages = 0;
+				this.nrCMessages = 0;
     }
     
     public synchronized int tokenLastVisited(){
@@ -60,6 +66,7 @@ public class Network1 {
 
     // Send message with random delay. Execute in separate thread to not delay the sender with it.
     public void sendMessage(final int destination, final NodeMessage1 nodeMessage) {
+        nrBMessages += 1;
         final int delay = random.nextInt(50);
         //PerformanceLogger.instance().addMessage(nodeMessage, nodeRunners[destination]);
         ThreadPool.createNew(new Runnable() {
@@ -84,6 +91,7 @@ public class Network1 {
 
     // Send message with random delay. Execute in separate thread to not delay the sender with it.
     public void sendProbeMessage(final int destination, final ProbeMessage1 probeMessage) {
+	      nrCMessages += 1;
         final int delay = random.nextInt(50);
         ThreadPool.createNew(new Runnable() {
             @Override
@@ -112,6 +120,10 @@ public class Network1 {
         }
     }
 
+		public boolean allowedToSend() {
+			return max_messages == -1 || nrBMessages < max_messages;
+		}
+
     // When a node becomes passive, this method gets called, to register the
     // time.
     public void registerPassive() {
@@ -131,4 +143,9 @@ public class Network1 {
     public long getLastPassive(){
     	return this.lastPassive;
     }
+
+		public void printStatistics() {
+			TDS.writeString(1, " Network:\tNumber of basic messages:\t" + nrBMessages);
+			TDS.writeString(1, " Network:\tNumber of control messages:\t" + nrCMessages);
+		}
 }

@@ -75,6 +75,7 @@ public class Prober2{
             
             long end = System.nanoTime();
             PerformanceLogger.instance().addProcTime(2, end - start);
+						network.printStatistics();
             TDS.instance().announce(2);
         }else{
             writeString("INCONSISTENT SNAPSHOT");

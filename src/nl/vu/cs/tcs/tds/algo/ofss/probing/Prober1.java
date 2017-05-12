@@ -42,6 +42,7 @@ public class Prober1 {
 	                    + " milliseconds after last node became passive.");
 	            long end = System.nanoTime();
 	            PerformanceLogger.instance().addProcTime(1, end - start);
+				network.printStatistics();
 				TDS.instance().announce(1);
 			}
 			else
