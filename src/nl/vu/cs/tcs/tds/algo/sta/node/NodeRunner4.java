@@ -7,9 +7,14 @@ import util.Options;
 import java.util.Vector;
 import java.util.Collections;
 import main.TDS;
+
+import util.LamportClock;
+
 import performance.PerformanceLogger;
+
 import algo.sta.network.Network4;
 import algo.sta.message.Message;
+
 import util.Color;
 
 public class NodeRunner4 implements Runnable {
@@ -41,6 +46,8 @@ public class NodeRunner4 implements Runnable {
 	// counter needed for echo algorithm
 	private int numberOfAcks = 0;
 
+	private LamportClock lc;
+
 	public NodeRunner4(int nodeID, int nnodes, Network4 network, boolean initiallyActive) {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
@@ -50,6 +57,8 @@ public class NodeRunner4 implements Runnable {
 		this.ownedNodes = new Vector<Integer>();
 		this.runningChildren = new Vector<Integer>();
 		this.nodes = new Vector<Integer>();
+
+		this.lc = new LamportClock();
 
 		for (int i = 0; i < nnodes; i++) {
 			nodes.add(i);
@@ -123,7 +132,10 @@ public class NodeRunner4 implements Runnable {
 	// Not used at the moment
 	public synchronized void sendMessage(int node, int type) {
 		//writeString("send a message to " + node);
-		network.sendMessage(node, new Message(this.nodeID, type));
+		network.sendMessage(node, new Message(this.nodeID, type, this.lc));
+		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
+			this.lc.inc();
+		}
 	}
 
 	/*
@@ -142,6 +154,9 @@ public class NodeRunner4 implements Runnable {
 		//writeString("received message from " + message.getSender());
  		int type = message.getType(); 
 		int sender = message.getSender(); 
+		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
+			this.lc.update(message.getLc());
+		}
 		
 		// If sender is root and type is E_ACCEPT then the echo algorithm is finished
 		if (sender == 0 && type == Message.E_ACCEPT) {
@@ -249,6 +264,7 @@ public class NodeRunner4 implements Runnable {
 			writeString("Thread stopped");
 			if (this.isRoot()) {
 				writeString("TERMINATION DECLARED!");
+				writeString("Lamport clock at end: " + lc);
 				network.killNodes();
 				network.announce();
 			}

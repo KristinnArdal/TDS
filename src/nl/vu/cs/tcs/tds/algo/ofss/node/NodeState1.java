@@ -1,6 +1,7 @@
 package algo.ofss.node;
 
 import util.Color;
+import util.LamportClock;
 
 public class NodeState1 {
 	private boolean passive;
@@ -8,18 +9,21 @@ public class NodeState1 {
 	private int color;
 	private int nnodes;
 	private int count;
+	private LamportClock lc;
 	
 	public NodeState1(boolean passive, int nodeNumber, int nnodes){
 		this.passive = passive;
 		this.nodeNumber = nodeNumber;
 		this.nnodes = nnodes;
 		this.color = Color.WHITE;
+		this.lc = new LamportClock();
 	}
 	
 	public synchronized NodeState1 copy(){
 		NodeState1 s = new NodeState1(passive, nodeNumber, nnodes);
 		s.count = this.count;
 		s.color = this.color;
+		s.lc = new LamportClock(lc);
 		return s;
 	}
 	
@@ -63,6 +67,18 @@ public class NodeState1 {
 
 	public synchronized void setPassive(boolean b) {
 		this.passive = b;
+	}
+
+	public synchronized void updateClock(LamportClock other) {
+		lc.update(other);
+	}
+
+	public synchronized void incClock() {
+		lc.inc();
+	}
+
+	public synchronized LamportClock getLc() {
+		return lc;
 	}
 
 }

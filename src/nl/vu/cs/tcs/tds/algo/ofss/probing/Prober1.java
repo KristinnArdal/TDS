@@ -4,7 +4,6 @@ import main.TDS;
 import performance.PerformanceLogger;
 import algo.ofss.network.Network1;
 import algo.ofss.node.NodeRunner1;
-import algo.ofss.node.NodeState1;
 import util.Color;
 
 public class Prober1 {
@@ -21,9 +20,9 @@ public class Prober1 {
 		this.mynode = mynode;
 		this.network = network;
 		if(mynode == 0){
-			ProbeMessage1 probeMessage = new ProbeMessage1(mynode, totalNodes);
+			ProbeMessage1 probeMessage = new ProbeMessage1(mynode, totalNodes, this.nodeRunner.getState().getLc());
 			PerformanceLogger.instance().incTokens(1);
-			network.sendProbeMessage(0, probeMessage);
+			sendProbeMessage(0, probeMessage);
 		}
 	}
 	
@@ -32,16 +31,18 @@ public class Prober1 {
     }
 	
 	public synchronized void receiveMessage(ProbeMessage1 probeMessage){
+		nodeRunner.updateClock(probeMessage.getLc());
 		this.waitUntilPassive();
 		long start = System.nanoTime();
 		if(nodeRunner.getId() == totalNodes - 1){
 			if(probeMessage.consistentSnapshot(nodeRunner)){
 				writeString("TERMINATION DETECTED");
-	            writeString("Termination detected "
-	                    + (System.currentTimeMillis() - network.getLastPassive())
-	                    + " milliseconds after last node became passive.");
-	            long end = System.nanoTime();
-	            PerformanceLogger.instance().addProcTime(1, end - start);
+				writeString("Lamports clock at end: " + nodeRunner.getState().getLc());
+				writeString("Termination detected "
+						+ (System.currentTimeMillis() - network.getLastPassive())
+						+ " milliseconds after last node became passive.");
+				long end = System.nanoTime();
+				PerformanceLogger.instance().addProcTime(1, end - start);
 				network.printStatistics();
 				TDS.instance().announce(1);
 			}
@@ -58,10 +59,12 @@ public class Prober1 {
 		probeMessage.zeroCount();
 		probeMessage.setColor(Color.WHITE);
 		nodeRunner.setColor(Color.WHITE);
+
+		probeMessage.setLc(nodeRunner.getState().getLc());
 		
 		PerformanceLogger.instance().incTokens(1);
 		PerformanceLogger.instance().addTokenBits(1, probeMessage.copy());
-		network.sendProbeMessage(0, probeMessage);
+		sendProbeMessage(0, probeMessage);
 	}
 	
 	private void propagate(ProbeMessage1 probeMessage){
@@ -69,10 +72,17 @@ public class Prober1 {
 		if(nodeRunner.getState().getColor() == Color.BLACK)
 			probeMessage.setColor(Color.BLACK);
 		nodeRunner.setColor(Color.WHITE);
+
+		probeMessage.setLc(nodeRunner.getState().getLc());
 		
 		PerformanceLogger.instance().incTokens(1);
 		PerformanceLogger.instance().addTokenBits(1, probeMessage.copy());
-		network.sendProbeMessage(mynode == (totalNodes - 1)? 0: mynode + 1, probeMessage);
+		sendProbeMessage(mynode == (totalNodes - 1)? 0: mynode + 1, probeMessage);
+	}
+
+	private void sendProbeMessage(int destination, ProbeMessage1 probeMessage) {
+		network.sendProbeMessage(destination, probeMessage);
+		nodeRunner.incClock();
 	}
 	
 	

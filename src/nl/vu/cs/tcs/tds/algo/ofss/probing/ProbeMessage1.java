@@ -4,26 +4,30 @@ import java.io.Serializable;
 
 import algo.ofss.node.NodeRunner1;
 import algo.ofss.node.NodeState1;
+
 import util.Color;
+import util.LamportClock;
 
 public class ProbeMessage1 implements Serializable{
 	
 	/**
      * 
      */
-    private static final long serialVersionUID = 1L;
-    private int sender;
+	private static final long serialVersionUID = 1L;
+	private int sender;
 	private int initiator;
 	private int color;
 	private int count;
 	private int nnodes;
+	private LamportClock lc;
 	
-	public ProbeMessage1(int sender, int nnodes) {
+	public ProbeMessage1(int sender, int nnodes, LamportClock lc) {
 		this.sender = sender;
 		this.color = Color.WHITE;
 		this.count = 0;
 		this.nnodes = nnodes;
 		this.initiator = nnodes - 1;
+		this.lc = new LamportClock(lc);
 	}
 	
 	public int getSender(){
@@ -49,6 +53,17 @@ public class ProbeMessage1 implements Serializable{
 		return this.count;
 	}
 	
+	/**
+	 * @return the lc
+	 */
+	public LamportClock getLc() {
+		return lc;
+	}
+
+	public synchronized void setLc(LamportClock other) {
+		this.lc = new LamportClock(other);
+	}
+
 	public void zeroCount(){
 		this.count = 0;
 	}
@@ -58,7 +73,7 @@ public class ProbeMessage1 implements Serializable{
 	}
 	
 	public synchronized ProbeMessage1 copy() {
-	    ProbeMessage1 result = new ProbeMessage1(this.sender, this.nnodes);
+	    ProbeMessage1 result = new ProbeMessage1(this.sender, this.nnodes, new LamportClock(this.lc));
 	    result.sender = this.sender;
 	    result.initiator = this.initiator;
 	    result.color = this.color;

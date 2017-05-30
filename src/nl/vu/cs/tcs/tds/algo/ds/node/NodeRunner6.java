@@ -8,6 +8,7 @@ import algo.ds.network.Network6;
 
 import main.TDS;
 
+import util.LamportClock;
 import util.Options;
 
 public class NodeRunner6 implements Runnable {
@@ -18,13 +19,16 @@ public class NodeRunner6 implements Runnable {
 	private Random random = new Random();
 
 	private boolean inTree = false;
-	private int parent = 0;
+	private int parent = -1;
 	private int child_count = 0;
+	private int[] in;
 
 	private boolean active;
 
 	private boolean mustStop = false;
 	private boolean started = false;
+
+	private LamportClock lc;
 
 	private final int MAX_ACTIVITY_DELAY = 1000;
 
@@ -37,8 +41,10 @@ public class NodeRunner6 implements Runnable {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
 		this.network = network;
+		this.lc = new LamportClock();
 
 		this.active = this.inTree = this.isRoot();
+		this.in = new int[nnodes];
 		network.registerNode(this);
 		Thread t = new Thread(this);
 		t.start();
@@ -55,29 +61,31 @@ public class NodeRunner6 implements Runnable {
 		TDS.writeString(6, "Node " + nodeID + ": \t" + s);
 	}
 
-	public synchronized void sendMessage(int target, Type type) {
+	public synchronized void sendMessage(int target, Type type, int value) {
 		switch (type) {
 			case BASIC:
 				writeString("Sending BASIC message to " + target);
+				child_count++;
 				break;
 			case ACK:
 				writeString("Sending ACK message to " + target);
 				break;
 		}
 
-		network.sendMessage(target, new Message(nodeID, type));
+		network.sendMessage(target, new Message(this.nodeID, type, value, this.lc));
+		lc.inc();
 	}
 
 	public synchronized void receiveMessage(Message message) {
 		Type type = message.getType();
 		int sender = message.getSender();
+		int value = message.getValue();
+		this.lc.update(message.getLc());
 		writeString("Received a message from " + sender);
 		switch (type) {
 			case BASIC:
-				if (inTree) {
-					sendMessage(sender, Type.ACK);
-				}
-				else {
+				in[sender] += 1;
+				if (!inTree) {
 					parent = sender;
 					inTree = true;
 				}
@@ -85,27 +93,13 @@ public class NodeRunner6 implements Runnable {
 				notifyAll();
 				break;
 			case ACK:
-				child_count--;
-				update();
+				child_count -= value;
+				if (!active) {
+					respond_major();
+				}
 				break;
 		}
 		notifyAll();
-	}
-
-	public synchronized void update() {
-		//writeString("update");
-		//writeString("cc: " + child_count + ",  active: " + active + ", inTree: " + inTree);
-		if (child_count == 0 && !active && inTree) {
-			inTree = false;
-			if (isRoot()) {
-				writeString("TERMINATION DECLARED!");
-				network.killNodes();
-				network.announce();
-			}
-			else {
-				sendMessage(parent, Type.ACK);
-			}
-		}
 	}
 
 	@Override
@@ -133,7 +127,36 @@ public class NodeRunner6 implements Runnable {
 			synchronized(this) {
 				active = false;
 			}
-			update();
+			respond_minor();
+			respond_major();
+		}
+	}
+
+	private synchronized void respond_minor() {
+		for (int i = 0; i < nnodes; i++) {
+			if (i == parent || in[i] == 0) { continue; }
+			else {
+				sendMessage(i, Type.ACK, in[i]);
+				in[i] = 0;
+			}
+		}
+	}
+
+	private synchronized void respond_major() {
+		if (child_count == 0) {
+			if (isRoot()) {
+				inTree = false;
+				writeString("TERMINATION DECLARED!");
+				writeString("Lamports clock at end: " + this.lc);
+				network.killNodes();
+				network.announce();
+			}
+			else {
+				sendMessage(parent, Type.ACK, in[parent]);
+				in[parent] = 0;
+				parent = -1;
+				inTree = false;
+			}
 		}
 	}
 
@@ -168,10 +191,7 @@ public class NodeRunner6 implements Runnable {
 			int nMessages = random.nextInt(level) + (this.isRoot() ? 1:0);
 			for (int j = 0; j < nMessages && network.allowedToSend(); j++) {
 				int target = network.selectTarget(nodeID);
-				sendMessage(target, Type.BASIC);
-				synchronized(this) {
-					child_count++;
-				}
+				sendMessage(target, Type.BASIC, 0);
 			}
 		}
 	}

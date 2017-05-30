@@ -2,6 +2,8 @@ package algo.ftsta.message;
 
 import java.io.Serializable;
 
+import util.LamportClock;
+
 public class Message implements Serializable {
 
 	/*
@@ -47,12 +49,14 @@ public class Message implements Serializable {
 	private int type;
 	private int sequenceNumber;
 	private int value;
+	private LamportClock lc;
 
-	public Message(int sender, int type, int sequenceNumber) {
+	public Message(int sender, int type, int sequenceNumber, LamportClock lc) {
 		this.sender = sender;
 		this.type = type;
 		this.sequenceNumber = sequenceNumber;
 		this.value = 0;
+		this.lc = new LamportClock(lc);
 	}
 
 
@@ -62,11 +66,12 @@ public class Message implements Serializable {
 	 * @param sequenceNumber 	the sequence number associated with the message
 	 * @param value 					a value sent with the message
 	 */
-	public Message(int sender, int type, int sequenceNumber, int value) {
+	public Message(int sender, int type, int sequenceNumber, int value, LamportClock lc) {
 		this.sender = sender;
 		this.type = type;
 		this.sequenceNumber = sequenceNumber;
 		this.value = value;
+		this.lc = new LamportClock(lc);
 	}
 
 	/**
@@ -95,6 +100,13 @@ public class Message implements Serializable {
 	 */
 	public int getValue() {
 		return value;
+	}
+
+	/**
+	 * @return the lc
+	 */
+	public LamportClock getLc() {
+		return lc;
 	}
 
 }

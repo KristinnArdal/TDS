@@ -4,6 +4,9 @@ import java.io.Serializable;
 
 import algo.sta.node.NodeRunner4;
 import algo.sta.node.NodeState4;
+
+import util.LamportClock;
+
 import util.Color;
 
 public class Message implements Serializable {
@@ -32,14 +35,23 @@ public class Message implements Serializable {
 	private static final long serialVersionUID = 4L;
 	private int sender;
 	private int type;
+	private LamportClock lc;
 
-	public Message(int sender, int type) {
+	public Message(int sender, int type, LamportClock lc) {
 		this.sender = sender;
 		this.type = type;
+		this.lc = new LamportClock(lc);
 	}
 
 	public int getType() {
 		return this.type;
+	}
+
+	/**
+	 * @return the lc
+	 */
+	public LamportClock getLc() {
+		return lc;
 	}
 
 	public int getSender() {

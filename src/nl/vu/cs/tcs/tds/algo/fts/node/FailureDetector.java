@@ -3,7 +3,11 @@ package algo.fts.node;
 import java.util.HashSet;
 
 import main.TDS;
+
+import util.LamportClock;
+
 import performance.PerformanceLogger;
+
 import algo.fts.network.Network3;
 import algo.fts.probing.ProbeMessage3;
 import algo.fts.probing.Prober3;
@@ -23,7 +27,7 @@ public class FailureDetector {
         this.network = network;
         this.nodeRunner = nodeRunner;
         
-        this.lastToken = new ProbeMessage3(mynode, nnodes);
+        this.lastToken = new ProbeMessage3(mynode, nnodes, new LamportClock());
         lastToken.setBlack(id);
     }
     

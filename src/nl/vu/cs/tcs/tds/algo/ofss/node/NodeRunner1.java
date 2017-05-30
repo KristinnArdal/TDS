@@ -3,6 +3,7 @@ package algo.ofss.node;
 import java.util.Random;
 
 import util.Options;
+import util.LamportClock;
 import main.TDS;
 import performance.PerformanceLogger;
 import algo.ofss.network.Network1;
@@ -71,6 +72,7 @@ public class NodeRunner1 implements Runnable {
         writeString("received message from " + m.sender);
         this.state.decCount();
         this.state.setPassive(false);
+				updateClock(m.getLc());
         this.isPassive = false;
         //notifyAll();
         this.state.setColor(Color.BLACK);
@@ -82,7 +84,8 @@ public class NodeRunner1 implements Runnable {
     private void sendMessage(int node) {
         writeString("send a message to " + node);
         this.state.incCount();
-        network.sendMessage(node, new NodeMessage1(mynode));
+        network.sendMessage(node, new NodeMessage1(mynode, state.getLc()));
+				incClock();
     }
 
     @Override
@@ -176,4 +179,12 @@ public class NodeRunner1 implements Runnable {
     public synchronized boolean isPassive(){
     	return state.isPassive();
     }
+
+		public synchronized void incClock() {
+			state.incClock();
+		}
+
+		public synchronized void updateClock(LamportClock other) {
+			state.updateClock(other);
+		}
 }

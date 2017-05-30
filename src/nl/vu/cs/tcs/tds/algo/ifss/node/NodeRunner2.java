@@ -4,6 +4,9 @@ import java.util.Random;
 
 import util.Options;
 import main.TDS;
+
+import util.LamportClock;
+
 import algo.ifss.network.Network2;
 import algo.ifss.probing.Prober2;
 
@@ -54,6 +57,7 @@ public class NodeRunner2 implements Runnable{
     
     public synchronized void receiveMessage(NodeMessage2 m) {
         writeString("received message from " + m.getSenderId());
+				updateClock(m.getLc());
         this.state.setPassive(false);
         this.isPassive = false;
         notifyAll();
@@ -69,8 +73,9 @@ public class NodeRunner2 implements Runnable{
     
     private void sendMessage(int node) {
         writeString("send a message to " + node);
-        network.sendMessage(node, new NodeMessage2(mynode, this.state.getSeq()));
+        network.sendMessage(node, new NodeMessage2(mynode, this.state.getSeq(), this.state.getLc()));
         this.state.incCount();
+				incClock();
     }
     
     
@@ -143,4 +148,11 @@ public class NodeRunner2 implements Runnable{
         return state.isPassive();
     }
     
+		public synchronized void incClock() {
+			this.state.incClock();
+		}
+
+		public synchronized void updateClock(LamportClock other) {
+			this.state.updateClock(other);
+		}
 }

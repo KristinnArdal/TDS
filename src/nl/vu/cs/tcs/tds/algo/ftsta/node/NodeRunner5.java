@@ -3,12 +3,14 @@ package algo.ftsta.node;
 import java.util.Random;
 
 import ibis.util.ThreadPool;
-import util.Options;
 import java.util.Vector;
 import java.util.Collections;
 import java.util.HashSet;
 
 import main.TDS;
+
+import util.Options;
+import util.LamportClock;
 
 import algo.ftsta.network.Network5;
 import algo.ftsta.message.Message;
@@ -56,6 +58,9 @@ public class NodeRunner5 implements Runnable {
 	// counter needed for echo algorithm
 	private int numberOfAcks = 0;
 
+	// lamport clock
+	private LamportClock lc;
+
 	public NodeRunner5(int nodeID, int nnodes, Network5 network, boolean initiallyActive) {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
@@ -70,6 +75,7 @@ public class NodeRunner5 implements Runnable {
 		this.children = new HashSet<Integer>();
 		this.childCountsGotten = new HashSet<Integer>();
 		this.CRASHED = new HashSet<Integer>();
+		this.lc = new LamportClock();
 
 		for (int i = 0; i < nnodes; i++) {
 			nodes.add(i);
@@ -114,7 +120,10 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	public synchronized void sendMessageWithValue(int node, int type, int value) {
-		network.sendMessage(node, new Message(this.nodeID, type, this.currSN, value));
+		network.sendMessage(node, new Message(this.nodeID, type, this.currSN, value, lc));
+		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
+			lc.inc();
+		}
 	}
 
 	private int calculateRoot() {
@@ -164,6 +173,10 @@ public class NodeRunner5 implements Runnable {
 		int sender = message.getSender();
 		int SN = message.getSequenceNumber();
 		int value = message.getValue();
+
+		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
+			this.lc.update(message.getLc());
+		}
 
 		// update sequence number if message has higher
 		updateCurrSN(SN);
@@ -331,6 +344,7 @@ public class NodeRunner5 implements Runnable {
 		// check if termination can be declared (only if root)
 		if (this.isRoot() && this.canDeclare()) {
 			writeString("TERMINATION DECLARED!");
+			writeString("Lamport clock at end: " + lc);
 			network.killNodes();
 			network.announce();
 		}
