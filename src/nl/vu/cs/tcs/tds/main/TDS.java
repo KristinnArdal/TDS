@@ -152,7 +152,7 @@ public class TDS {
 			new Thread(tds6).start();
 			new Thread(tds7).start();
 		}else{//ugly but ok for now
-			done[0] = done[1] = done[2] = done[3] = done[4] = done[5] = true;
+			done[0] = done[1] = done[2] = done[3] = done[4] = done[5] = done[6] = true;
 			int version = Options.instance().get(Options.VERSION);
 			String versionString = String.valueOf(version);
 
