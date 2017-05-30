@@ -393,11 +393,13 @@ public class NodeRunner5 implements Runnable {
 			}
 			writeString("becoming active");
 			activity();
+
 			synchronized(this) {
+				if (mustStop) { return; }
 				this.setIdle();
 				writeString("becoming passive");
+				update();
 			}
-			update();
 		}
 	}
 
@@ -429,7 +431,7 @@ public class NodeRunner5 implements Runnable {
 			}
 			int nMessages = random.nextInt(level) + (this.nodeID == 0? 1:0);
 
-			for (int j = 0; j < nMessages && network.allowedToSend(); j++) {
+			for (int j = 0; j < nMessages && network.allowedToSend() && !mustStop; j++) {
 				// Get node to send message to
 				int target = network.selectTarget(nodeID);
 
