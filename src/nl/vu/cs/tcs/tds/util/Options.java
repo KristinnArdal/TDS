@@ -28,7 +28,7 @@ public class Options {
 	public static final int DEFAULT_CSV = 0;
 	public static final int DEFAULT_CSV_FLUSH = 0;
 	public static final int DEFAULT_VERSION = 0;
-	private static final int[] ALLOWED_VERSIONS = {1,2,3, 12, 13, 21, 31, 23, 32, 123, 132, 213, 231, 312, 321, 4, 5, 6};
+	private static final int[] ALLOWED_VERSIONS = {1,2,3, 12, 13, 21, 31, 23, 32, 123, 132, 213, 231, 312, 321, 4, 5, 6, 7};
 	public static final int DEFAULT_CRUSHED_NODES = 0;
 	public static final int DEFAULT_MAX_MESSAGES = -1;
 	
