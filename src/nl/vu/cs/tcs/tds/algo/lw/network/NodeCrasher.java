@@ -30,6 +30,9 @@ public class NodeCrasher {
 		this.nnodes = nnodes;
 		numCrashedNodes = Options.instance().get(Options.CRASHED_NODES);
 		this.crashedNodes = new int[numCrashedNodes];
+		for (int i = 0; i < numCrashedNodes; i++) {
+			crashedNodes[i] = -1;
+		}
 		this.random = new Random();
 	}
 
@@ -42,10 +45,8 @@ public class NodeCrasher {
 	public void go() {
 		for (int i = 0; i < numCrashedNodes; i++) {
 			int newCrash = random.nextInt(nnodes);
-			while(contains(crashedNodes, newCrash)) {
-				TDS.writeString(0, "" + newCrash);
+			while(contains(crashedNodes, newCrash))
 				newCrash = random.nextInt(nnodes);
-			}
 			crashedNodes[i] = newCrash;
 		}
 
