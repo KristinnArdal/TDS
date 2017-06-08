@@ -124,6 +124,9 @@ public class NodeRunner5 implements Runnable {
 		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
 			lc.inc();
 		}
+		if (type == Message.R_S) {
+			waitingForAck = true;
+		}
 	}
 
 	private int calculateRoot() {
@@ -173,6 +176,10 @@ public class NodeRunner5 implements Runnable {
 		int sender = message.getSender();
 		int SN = message.getSequenceNumber();
 		int value = message.getValue();
+
+		if (CRASHED.contains(sender)) { // we don't accept incoming messages from nodes that we know have crashed
+			return;
+		}
 
 		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
 			this.lc.update(message.getLc());
@@ -464,27 +471,29 @@ public class NodeRunner5 implements Runnable {
 			if (runningChildren.contains(crashedNode)) { runningChildren.removeElement(crashedNode); }
 
 		}
-		// node can appread multiple times in crashedNode
+		// node can appear multiple times in ownedNodes
 		while (ownedNodes.contains(crashedNode)) {
 			ownedNodes.removeElement(crashedNode);
 		}
-		if (owned && ownedBy == crashedNode) { // node was owned by another node
-			this.waitingForAck = true; // this node needs to wait for the R_ACK message before reporting its count to the root.
+		if (owned && ownedBy == crashedNode) { // node was owned by crashed node
+			//this.waitingForAck = true; // this node needs to wait for the R_ACK message before reporting its count to the root.
 			owned = false;
 			ownedBy = -1;
 		}
 
 
 		if (this.isRoot() && this.parent != this.nodeID) {
-			sendMessage(this.parent, Message.DCONN);
+			if (this.parent != crashedNode) //Only send a DCONN if the node has not crashed
+				sendMessage(this.parent, Message.DCONN);
 			this.parent = this.nodeID;
+			this.waitingForAck = false;
 		}
 		else if (this.parent == crashedNode) {
 			this.parent = calculateRoot();
 			writeString("New parent: " + this.parent);
 			countSent = false;
 			sendMessage(this.parent, Message.CONN_S);
-			waitingForAck = true;
+			//waitingForAck = true;
 		}
 		update();
 	}
