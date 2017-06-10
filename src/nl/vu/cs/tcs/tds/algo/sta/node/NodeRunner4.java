@@ -6,16 +6,14 @@ import ibis.util.ThreadPool;
 import util.Options;
 import java.util.Vector;
 import java.util.Collections;
+import java.util.HashMap;
+
 import main.TDS;
 
 import util.LamportClock;
 
-import performance.PerformanceLogger;
-
 import algo.sta.network.Network4;
 import algo.sta.message.Message;
-
-import util.Color;
 
 public class NodeRunner4 implements Runnable {
 
@@ -27,7 +25,8 @@ public class NodeRunner4 implements Runnable {
 
 	// state of the node
 	private boolean idle = true;
-	private boolean stopped = true;
+	private boolean free = false;
+	private boolean inactive = false;
 
 	// tree structure
 	private int parent = -1;
@@ -36,11 +35,12 @@ public class NodeRunner4 implements Runnable {
 	private boolean mustStop = false;
 
 	// message variables
+	private HashMap<Integer, Integer> child_inactive;
+	private int num_unack_msgs = 0;
 	private boolean owned = false;
 	private int ownedBy = -1;
 	private Vector<Integer> rAckNext;
 	private Vector<Integer> ownedNodes;
-	private Vector<Integer> runningChildren;
 	private Vector<Integer> nodes;
 
 	// counter needed for echo algorithm
@@ -55,8 +55,9 @@ public class NodeRunner4 implements Runnable {
 		this.network = network;
 		this.rAckNext = new Vector<Integer>();
 		this.ownedNodes = new Vector<Integer>();
-		this.runningChildren = new Vector<Integer>();
 		this.nodes = new Vector<Integer>();
+
+		this.child_inactive = new HashMap<Integer, Integer>();
 
 		this.lc = new LamportClock();
 
@@ -108,17 +109,17 @@ public class NodeRunner4 implements Runnable {
 		return this.idle;
 	}
 
-	// Set and get methods for stopped variable
-	public synchronized void setStopped() {
-		this.stopped = true;
+	// Set and get methods for inactive variable
+	public synchronized void setInactive() {
+		this.inactive = true;
 	}
 
-	public synchronized void setRunning() {
-		this.stopped = false;
+	public synchronized void setActive() {
+		this.inactive = false;
 	}
 
-	public synchronized boolean isStopped() {
-		return this.stopped;
+	public synchronized boolean isInactive() {
+		return this.inactive;
 	}
 
 	/*
@@ -136,6 +137,9 @@ public class NodeRunner4 implements Runnable {
 		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
 			this.lc.inc();
 		}
+		if (type == Message.M_S) {
+			num_unack_msgs++;
+		}
 	}
 
 	/*
@@ -143,7 +147,7 @@ public class NodeRunner4 implements Runnable {
 	 */
 	
 	public synchronized void stopRunning() {
-		if (!this.isStopped()) {
+		if (!this.isInactive()) {
 			writeString("stopped while active");
 		}
 		this.mustStop = true;
@@ -194,6 +198,7 @@ public class NodeRunner4 implements Runnable {
 				break; 
 			case Message.E_ACCEPT: 
 				writeString(sender + " became child");
+				child_inactive.put(sender, 0);
 				this.numberOfAcks++;
 				if (this.numberOfAcks == nnodes) {
 					this.sendMessage(this.getParent(), Message.E_ACCEPT);
@@ -209,10 +214,11 @@ public class NodeRunner4 implements Runnable {
 			case Message.M_S: 
 				writeString(sender + " ownes this node");
 				this.setBusy();
+				free = false;
 				notifyAll();
-				if (this.isStopped()) {
-					this.setRunning();
+				if (this.isInactive()) {
 					this.sendMessage(this.getParent(), Message.R_S);
+					this.setActive();
 					this.owned = true;
 					ownedBy = sender;
 				}
@@ -222,14 +228,15 @@ public class NodeRunner4 implements Runnable {
 				break; 
 			case Message.M_ACK: 
 				writeString(sender + " ownership released");
+				num_unack_msgs--;
 				ownedNodes.removeElement(sender);
 				update();
 				break; 
 			case Message.R_S: 
 				writeString("RESUME message from " + sender);
-				runningChildren.add(sender);
-				if (this.isStopped()) {
-					this.setRunning();
+				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) - 1);
+				if (this.isInactive()) {
+					this.setActive();
 					this.sendMessage(this.getParent(), Message.R_S);
 					rAckNext.add(sender);
 				}
@@ -250,7 +257,7 @@ public class NodeRunner4 implements Runnable {
 				break; 
 			case Message.STOP: 
 				writeString("STOP message from " + sender);
-				runningChildren.removeElement(sender);
+				child_inactive.put(sender, child_inactive.get(sender) + 1);
 				update();
 				break; 
 			default: // Should not happen 
@@ -259,9 +266,22 @@ public class NodeRunner4 implements Runnable {
 	}
 
 	private synchronized void update() {
-		if (!this.isStopped() && runningChildren.isEmpty() && this.isIdle() && ownedNodes.isEmpty()) {
-			this.setStopped();
+		writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + num_unack_msgs);
+		if (idle && num_unack_msgs == 0) {
+			this.free = true;
+		}
+
+		boolean allChildrenInactive = true;
+		for (Integer key : child_inactive.values()) {
+			if (key != 1) {
+				allChildrenInactive = false;
+				break;
+			}
+		}
+
+		if (allChildrenInactive && free && !inactive) {
 			writeString("Thread stopped");
+			this.setInactive();
 			if (this.isRoot()) {
 				writeString("TERMINATION DECLARED!");
 				writeString("Lamport clock at end: " + lc);
@@ -284,7 +304,7 @@ public class NodeRunner4 implements Runnable {
 			// Start echo algorithm by sending a propose message to self
 			this.sendMessage(this.nodeID, Message.E_PROPOSE);
 			this.setBusy();
-			this.setRunning();
+			this.setActive();
 		}
 		this.Wait();
 		if (this.nodeID == 0) {
@@ -293,6 +313,8 @@ public class NodeRunner4 implements Runnable {
 
 		//writeString(String.format("%d is parent", this.parent));
 		// start main loop of algorithm
+		
+		update();
 		
 		while (!mustStop) {
 			synchronized(this) {
