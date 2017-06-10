@@ -266,7 +266,6 @@ public class NodeRunner4 implements Runnable {
 	}
 
 	private synchronized void update() {
-		writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + num_unack_msgs);
 		if (idle && num_unack_msgs == 0) {
 			this.free = true;
 		}
