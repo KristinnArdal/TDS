@@ -24,7 +24,6 @@ public class NodeRunner5 implements Runnable {
 	private final int nnodes;
 	private final Network5 network;
 	private Random random = new Random();
-	private int sequenceNumber;
 
 	// state of the node
 	private boolean idle = true;
@@ -69,7 +68,6 @@ public class NodeRunner5 implements Runnable {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
 		this.subCount = 1;
-		this.sequenceNumber = 0;
 		network.registerNode(this);
 		this.network = network;
 		this.ownedBy = new Vector<Integer>();
@@ -149,7 +147,6 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	private boolean canDeclare() {
-		// currSN == sequenceNumber where currSN is the hightest SN that we have received in a message
 		return subCount == (nnodes - CRASHED.size());
 	}
 
@@ -301,6 +298,7 @@ public class NodeRunner5 implements Runnable {
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) + 1);
 				break;
 			case Message.SNAP:
+				writeString("SNAP from " + sender + " with value " + value + " received");
 				if (SN == currSN) {
 					subCount += value;
 					childCountsGotten.add(sender);
@@ -391,7 +389,7 @@ public class NodeRunner5 implements Runnable {
 		// check if subCount should be sent to parent node, should only be done if
 		// this node has received counts from all of its children and is not
 		// waiting for an acknowledgement
-		if (!countSent && sequenceNumber == CRASHED.size() && !waitingForAck && !this.isRoot() && childCountsGotten.size() == children.size()) {
+		if (!countSent && CRASHED.size() == currSN && !waitingForAck && !this.isRoot() && childCountsGotten.size() == children.size()) {
 			sendMessageWithValue(parent, Message.SNAP, subCount);
 			countSent = true;
 		}
@@ -494,8 +492,7 @@ public class NodeRunner5 implements Runnable {
 			return;
 		}
 		CRASHED.add(crashedNode);
-		sequenceNumber++;
-		updateCurrSN(sequenceNumber);
+		updateCurrSN(CRASHED.size());
 
 		writeString(crashedNode + " crashed");
 		// remove crashed node from all lists that might contain it
