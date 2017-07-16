@@ -2,7 +2,6 @@ package algo.ftsta.node;
 
 import java.util.Random;
 
-import ibis.util.ThreadPool;
 import java.util.Vector;
 import java.util.Arrays;
 import java.util.Collections;
@@ -15,6 +14,9 @@ import util.Options;
 import util.LamportClock;
 
 import algo.ftsta.network.Network5;
+
+import ibis.util.ThreadPool;
+
 import algo.ftsta.message.Message;
 
 public class NodeRunner5 implements Runnable {
@@ -50,13 +52,9 @@ public class NodeRunner5 implements Runnable {
 	private volatile HashSet<Integer> CRASHED;
 
 	// node check variables
-	private boolean countSent = true;
 	private int subCount; // count of the number of nodes in its subtree
- 	// child node is in the set if current node has received the subcounts for it for current SN
-	private HashSet<Integer> childCountsGotten;
 	// current sequence number the node is counting for
 	private int currSN = 0;
-	private boolean waitingForAck = false;
 
 	// counter needed for echo algorithm
 	private int numberOfAcks = 0;
@@ -79,7 +77,6 @@ public class NodeRunner5 implements Runnable {
 		this.num_unack_msgs = new int[nnodes];
 
 		this.children = new HashSet<Integer>();
-		this.childCountsGotten = new HashSet<Integer>();
 		this.CRASHED = new HashSet<Integer>();
 		this.lc = new LamportClock();
 
@@ -133,9 +130,6 @@ public class NodeRunner5 implements Runnable {
 		if (type == Message.M_S) {
 			num_unack_msgs[node]++;
 		}
-		//else if (type == Message.R_S) {
-		//	waitingForAck = true;
-		//}
 	}
 
 	private int calculateRoot() {
@@ -146,9 +140,9 @@ public class NodeRunner5 implements Runnable {
 		return -1; // should never happen
 	}
 
-	private boolean canDeclare() {
-		return subCount == (nnodes - CRASHED.size());
-	}
+	//private boolean canDeclare() {
+	//	return subCount == (nnodes - CRASHED.size());
+	//}
 
 	/*
 	 * main logic of the node
@@ -173,8 +167,20 @@ public class NodeRunner5 implements Runnable {
 		if (SN > currSN) {
 			currSN = SN;
 			subCount = 1;
-			countSent = false;
-			childCountsGotten.clear();
+			setActive();
+
+			for (int key: child_inactive.keySet()) {
+				child_inactive.put(key, 0);
+			}
+
+			if (owned) {
+				for (int node : ownedBy) {
+					this.sendMessage(node, Message.M_ACK);
+				}
+				this.owned = false;
+				ownedBy.clear();
+			}
+			rAckNext.clear();
 		}
 	}
 
@@ -231,20 +237,19 @@ public class NodeRunner5 implements Runnable {
 				}
 				break;
 			case Message.E_ACCEPT:
-				subCount += value;
 				writeString(sender + " became child");
 				child_inactive.put(sender, 0);
 				this.children.add(sender);
 				this.numberOfAcks++;
 				if (this.numberOfAcks == nnodes) {
-					this.sendMessageWithValue(this.getParent(), Message.E_ACCEPT, subCount);
+					this.sendMessage(this.getParent(), Message.E_ACCEPT);
 				}
 				break;
 			case Message.E_REJECT:
 				//writeString("reject message from " + sender);
 				this.numberOfAcks++;
 				if (this.numberOfAcks == nnodes) {
-					this.sendMessageWithValue(this.getParent(), Message.E_ACCEPT, subCount);
+					this.sendMessage(this.getParent(), Message.E_ACCEPT);
 				}
 				break;
 			case Message.M_S:
@@ -253,7 +258,7 @@ public class NodeRunner5 implements Runnable {
 				free = false;
 				notifyAll();
 				if (this.isInactive()) {
-					this.sendMessage(this.getParent(), Message.R_S);
+					this.sendMessageWithValue(this.getParent(), Message.R_S, subCount);
 					this.setActive();
 					this.owned = true;
 					ownedBy.add(sender);
@@ -268,19 +273,20 @@ public class NodeRunner5 implements Runnable {
 				ownedNodes.removeElement(sender);
 				break;
 			case Message.R_S:
+				if (currSN != SN) { return; }// should this just be break?
 				writeString("RESUME message from " + sender);
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) - 1);
 				if (this.isInactive()) {
 					this.setActive();
-					this.sendMessage(this.getParent(), Message.R_S);
+					this.sendMessageWithValue(this.getParent(), Message.R_S, subCount);
 					rAckNext.add(sender);
 				}
 				else {
 					this.sendMessage(sender, Message.R_ACK);
 				}
+				subCount -= value;
 				break;
 			case Message.R_ACK:
-				if (waitingForAck) { waitingForAck = false; }
 				if (owned) {
 					for (int node : ownedBy) {
 						this.sendMessage(node, Message.M_ACK);
@@ -294,40 +300,16 @@ public class NodeRunner5 implements Runnable {
 				rAckNext.clear();
 				break;
 			case Message.STOP:
+				if (currSN != SN) { return; }
+				subCount += value;
 				writeString("STOP message from " + sender);
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) + 1);
-				break;
-			case Message.SNAP:
-				writeString("SNAP from " + sender + " with value " + value + " received");
-				if (SN == currSN) {
-					subCount += value;
-					childCountsGotten.add(sender);
-				}
 				break;
 			case Message.CONN_S: // always accept for now
 				children.add(sender);
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0));
-				sendMessage(sender, Message.CONN_ACK);
+				sendMessage(sender, Message.R_ACK);
 				writeString(sender + " added as child");
-				break;
-			case Message.CONN_ACK:
-				// parent assumes that node is active
-				//if (isInactive()) {
-				//	sendMessage(parent, Message.STOP);
-				//}
-				// same action as when receiving R_ACK
-				if (waitingForAck) { waitingForAck = false; }
-				if (owned) {
-					for (int node : ownedBy) {
-						this.sendMessage(node, Message.M_ACK);
-					}
-					this.owned = false;
-					ownedBy.clear();
-				}
-				for (int nextNode : rAckNext) {
-					this.sendMessage(nextNode, Message.R_ACK);
-				}
-				rAckNext.clear();
 				break;
 			case Message.CONN_REJ:
 				break;
@@ -347,7 +329,7 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	private synchronized void update() {
-		writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + Arrays.toString(num_unack_msgs) + " " + countSent + " " + waitingForAck + " " + subCount + " " + owned + " " + ownedBy);
+		// writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + Arrays.toString(num_unack_msgs) + " " + subCount + " " + owned + " " + ownedBy);
 		boolean no_unack_msgs = true;
 		for (int n : num_unack_msgs) {
 			if (n != 0) {
@@ -369,29 +351,20 @@ public class NodeRunner5 implements Runnable {
 		}
 
 		// check if the node is allowed to stop
-		//if (!this.isInactive() && runningChildren.isEmpty() && this.isIdle() && ownedNodes.isEmpty() && !owned) {
-		if (allChildrenInactive && free && !inactive) {
+		if (allChildrenInactive && free && !inactive && currSN == CRASHED.size()) {
 			writeString("Thread stopped");
 			this.setInactive();
 			if (!this.isRoot()) {
-				this.sendMessage(this.parent, Message.STOP);
+				this.sendMessageWithValue(this.parent, Message.STOP, subCount);
 			}
 		}
 
 		// check if termination can be declared (only if root)
-		if (isInactive() && this.isRoot() && this.canDeclare()) {
+		if (inactive && isRoot() && subCount == nnodes - CRASHED.size()) {
 			writeString("TERMINATION DECLARED!");
 			writeString("Lamport clock at end: " + lc);
 			network.killNodes();
 			network.announce();
-		}
-
-		// check if subCount should be sent to parent node, should only be done if
-		// this node has received counts from all of its children and is not
-		// waiting for an acknowledgement
-		if (!countSent && CRASHED.size() == currSN && !waitingForAck && !this.isRoot() && childCountsGotten.size() == children.size()) {
-			sendMessageWithValue(parent, Message.SNAP, subCount);
-			countSent = true;
 		}
 	}
 
@@ -408,6 +381,7 @@ public class NodeRunner5 implements Runnable {
 			this.setActive();
 		}
 		this.Wait();
+		nodes.clear();
 		if (this.nodeID == 0) {
 			writeString("Main algorithm started");
 		}
@@ -492,7 +466,6 @@ public class NodeRunner5 implements Runnable {
 			return;
 		}
 		CRASHED.add(crashedNode);
-		updateCurrSN(CRASHED.size());
 
 		writeString(crashedNode + " crashed");
 		// remove crashed node from all lists that might contain it
@@ -510,17 +483,17 @@ public class NodeRunner5 implements Runnable {
 		if (owned && ownedBy.contains(crashedNode)) { // node was owned by crashed node
 			ownedBy.removeElement(crashedNode);
 			if (ownedBy.isEmpty()) {
-				this.waitingForAck = true; // this node needs to wait for the R_ACK message before reporting its count to the root.
 				owned = false;
 			}
 		}
+
+		updateCurrSN(CRASHED.size());
 
 
 		if (this.isRoot() && this.parent != this.nodeID) {
 			if (this.parent != crashedNode) //Only send a DCONN if the node has not crashed
 				sendMessage(this.parent, Message.DCONN);
 			this.parent = this.nodeID;
-			this.waitingForAck = false;
 			if (owned) {
 				for (int node : ownedBy) {
 					this.sendMessage(node, Message.M_ACK);
@@ -536,9 +509,7 @@ public class NodeRunner5 implements Runnable {
 		else if (this.parent == crashedNode) {
 			this.parent = calculateRoot();
 			writeString("New parent: " + this.parent);
-			countSent = false;
 			sendMessage(this.parent, Message.CONN_S);
-			waitingForAck = true;
 			this.inactive = false;
 		}
 		update();
