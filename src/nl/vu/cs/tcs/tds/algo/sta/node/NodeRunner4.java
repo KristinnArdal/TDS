@@ -154,6 +154,22 @@ public class NodeRunner4 implements Runnable {
 		notifyAll();
 	}
 
+	private void sendEchoAll() {
+		for (Integer i : nodes) {
+			if (i == parent || i == this.nodeID) {
+				this.numberOfAcks++;
+				continue;
+			}
+			else {
+				try{
+					Thread.sleep(10);
+				} catch (InterruptedException e) {
+				}
+				this.sendMessage(i, Message.E_PROPOSE);
+			}
+		}
+	}
+
 	public synchronized void receiveMessage(Message message) {
 		//writeString("received message from " + message.getSender());
  		int type = message.getType(); 
@@ -185,15 +201,12 @@ public class NodeRunner4 implements Runnable {
 					// send E_PROPOSE to all other nodes with a small dealy
 					this.setParent(sender);
 					writeString(sender + " set as parent");
-					for (Integer i : nodes) {
-						if (i == sender || i == this.nodeID) {
-							this.numberOfAcks++;
-							continue;
+					ThreadPool.createNew(new Runnable() {
+						@Override
+						public void run() {
+							sendEchoAll();
 						}
-						else {
-							this.sendMessage(i, Message.E_PROPOSE);
-						}
-					}
+					}, "echoSend");
 				}
 				break; 
 			case Message.E_ACCEPT: 
