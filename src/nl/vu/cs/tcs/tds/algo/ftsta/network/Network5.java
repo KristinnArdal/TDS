@@ -106,7 +106,7 @@ public class Network5 {
 				}
 				nodeRunners[destination].receiveMessage(message);
 			}
-		}, "Sender");
+		}, "Sender 5");
 	}
 
 	public synchronized void waitForAllNodes() {
@@ -162,17 +162,19 @@ public class Network5 {
 			public void run() {
 				TDS.instance().announce(5);
 			}
-		}, "TDS_1");
+		}, "TDS_5");
 	}
 
-	public synchronized void crash(int nodeID) {
+	public void crash(int nodeID) {
 		if(nodeRunners[nodeID] != null ) {
 			nodeRunners[nodeID].crash();
-			crashedNodes.add(nodeID);
+			synchronized(this) {
+				crashedNodes.add(nodeID);
+			}
 		}
 	}
 
-	public synchronized void sendCrashedMessage(int receiver, int crashedNode) {
+	public void sendCrashedMessage(int receiver, int crashedNode) {
 		if (crashedNodes.contains(receiver)) { return; }
 		ThreadPool.createNew(new Runnable() {
 			@Override
