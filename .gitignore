@@ -10,4 +10,6 @@
 /.settings/
 /*.csv
 /.classpath
+/results/
+/results.old/
 TODO.txt
