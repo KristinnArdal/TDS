@@ -1,18 +1,27 @@
 #!/bin/bash
+VERSION=7
+NODES=64
+CRASH=0
+MESSAGES=1600
 NUM_TESTS=$1
 if [ "$NUM_TESTS" = "" ];
 then
-	echo 'No number of tests specified. Running 1';
+	NUM_TESTS=1
 fi
-echo -ne "Running test 1" of $NUM_TESTS \\r
-java -jar TDS-0.1.jar -ver 2 -n 64 -csv -c 12 -f -l 2 -w 200000
-sleep 2
-NUM_TESTS=`expr $NUM_TESTS - 1`
-for i in `seq 1 $NUM_TESTS`;
+if [ ! -d "results/$VERSION/$NODES/" ]; then
+	mkdir -p "results/$VERSION/$NODES/" ]
+fi
+for VERSION in 3 5 7;
 do
-	echo -ne "Running test" `expr $i + 1` "of" $1 \\r
-	java -jar TDS-0.1.jar -ver 2 -csv -n 64 -c 12 -l 2 -w 200000
-	sleep 2
-done 
-NUM_TESTS=`expr $NUM_TESTS + 1`
+	for CRASH in {0,2,4,8,16,32}
+	do
+		echo "Algorithm " $VERSION " with " $CRASH " crashes"
+		for i in `seq 1 $NUM_TESTS`;
+		do
+			echo "Running test" $i "of" $1
+			java -jar TDS-0.1.jar -ver $VERSION -v -l 3 -n $NODES -c $CRASH -m $MESSAGES -w 200000 > results/$VERSION/$NODES/m$MESSAGES-c$CRASH-r$i.data
+			sleep 1
+		done 
+	done
+done
 echo 'Done running' $NUM_TESTS 'tests!'
