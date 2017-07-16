@@ -127,7 +127,7 @@ public class NodeRunner7 implements Runnable {
 				child_count -= value;
 				KF.addAll(message.getS());
 				numFaulty[sender] = Math.max(message.getS().size(), numFaulty[sender]);
-				if (!active && inTree) {
+				if (!active) {
 					respond_major();
 				}
 				break;
