@@ -45,14 +45,13 @@ public class NodeRunner5 implements Runnable {
 	private boolean owned = false;
 	private Vector<Integer> ownedBy;
 	private Vector<Integer> rAckNext;
-	private Vector<Integer> ownedNodes;
 	private Vector<Integer> nodes;
 
 	// crash detection
 	private volatile HashSet<Integer> CRASHED;
 
 	// node check variables
-	private int subCount; // count of the number of nodes in its subtree
+	private HashMap<Integer, Integer> child_counts;
 	// current sequence number the node is counting for
 	private int currSN = 0;
 
@@ -65,15 +64,13 @@ public class NodeRunner5 implements Runnable {
 	public NodeRunner5(int nodeID, int nnodes, Network5 network, boolean initiallyActive) {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
-		this.subCount = 1;
-		network.registerNode(this);
 		this.network = network;
 		this.ownedBy = new Vector<Integer>();
 		this.rAckNext = new Vector<Integer>();
-		this.ownedNodes = new Vector<Integer>();
 		this.nodes = new Vector<Integer>();
 
 		this.child_inactive = new HashMap<Integer, Integer>();
+		this.child_counts = new HashMap<Integer, Integer>();
 		this.num_unack_msgs = new int[nnodes];
 
 		this.children = new HashSet<Integer>();
@@ -84,6 +81,8 @@ public class NodeRunner5 implements Runnable {
 			nodes.add(i);
 		}
 		Collections.shuffle(nodes);
+
+		network.registerNode(this);
 
 		Thread t = new Thread(this);
 		t.start();
@@ -123,7 +122,7 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	public synchronized void sendMessageWithValue(int node, int type, int value) {
-		network.sendMessage(node, new Message(this.nodeID, type, this.currSN, value, lc));
+		network.sendMessage(node, new Message(this.nodeID, type, this.currSN, new Integer(value), lc));
 		if (type != Message.E_ACCEPT && type != Message.E_PROPOSE && type != Message.E_REJECT) {
 			lc.inc();
 		}
@@ -139,10 +138,6 @@ public class NodeRunner5 implements Runnable {
 		}
 		return -1; // should never happen
 	}
-
-	//private boolean canDeclare() {
-	//	return subCount == (nnodes - CRASHED.size());
-	//}
 
 	/*
 	 * main logic of the node
@@ -166,7 +161,6 @@ public class NodeRunner5 implements Runnable {
 	private synchronized void updateCurrSN(int SN) {
 		if (SN > currSN) {
 			currSN = SN;
-			subCount = 1;
 			setActive();
 
 			for (int key: child_inactive.keySet()) {
@@ -181,6 +175,10 @@ public class NodeRunner5 implements Runnable {
 				ownedBy.clear();
 			}
 			rAckNext.clear();
+
+			for (int key: child_counts.keySet()) {
+				child_counts.put(key, 0);
+			}
 		}
 	}
 
@@ -271,7 +269,7 @@ public class NodeRunner5 implements Runnable {
 				free = false;
 				notifyAll();
 				if (this.isInactive()) {
-					this.sendMessageWithValue(this.getParent(), Message.R_S, subCount);
+					this.sendMessage(this.getParent(), Message.R_S);
 					this.setActive();
 					this.owned = true;
 					ownedBy.add(sender);
@@ -283,7 +281,6 @@ public class NodeRunner5 implements Runnable {
 			case Message.M_ACK:
 				writeString(sender + " ownership released");
 				num_unack_msgs[sender]--;
-				ownedNodes.removeElement(sender);
 				break;
 			case Message.R_S:
 				if (currSN != SN) { return; }// should this just be break?
@@ -291,13 +288,12 @@ public class NodeRunner5 implements Runnable {
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) - 1);
 				if (this.isInactive()) {
 					this.setActive();
-					this.sendMessageWithValue(this.getParent(), Message.R_S, subCount);
+					this.sendMessage(this.getParent(), Message.R_S);
 					rAckNext.add(sender);
 				}
 				else {
 					this.sendMessage(sender, Message.R_ACK);
 				}
-				subCount -= value;
 				break;
 			case Message.R_ACK:
 				if (owned) {
@@ -314,13 +310,14 @@ public class NodeRunner5 implements Runnable {
 				break;
 			case Message.STOP:
 				if (currSN != SN) { return; }
-				subCount += value;
+				child_counts.put(sender, Math.max(child_counts.getOrDefault(sender, 0), value));
 				writeString("STOP message from " + sender);
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0) + 1);
 				break;
 			case Message.CONN_S: // always accept for now
 				children.add(sender);
 				child_inactive.put(sender, child_inactive.getOrDefault(sender, 0));
+				child_counts.put(sender, child_counts.getOrDefault(sender, 0));
 				sendMessage(sender, Message.R_ACK);
 				writeString(sender + " added as child");
 				break;
@@ -342,7 +339,8 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	private synchronized void update() {
-		// writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + Arrays.toString(num_unack_msgs) + " " + subCount + " " + owned + " " + ownedBy);
+		//writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + Arrays.toString(num_unack_msgs) + " " + subCount + " " + owned + " " + ownedBy);
+		writeString(idle + " " + free + " " + inactive + " " + child_inactive + " " + child_counts);
 		boolean no_unack_msgs = true;
 		for (int n : num_unack_msgs) {
 			if (n != 0) {
@@ -361,6 +359,11 @@ public class NodeRunner5 implements Runnable {
 				allChildrenInactive = false;
 				break;
 			}
+		}
+
+		int subCount = 1;
+		for (int key: child_counts.keySet()) {
+			subCount += child_counts.get(key);
 		}
 
 		// check if the node is allowed to stop
@@ -465,11 +468,7 @@ public class NodeRunner5 implements Runnable {
 				while (CRASHED.contains(target))
 					target = network.selectTarget(nodeID);
 
-				synchronized(this) {
-					this.sendMessage(target, Message.M_S);
-					// This needs to be synchronized since we can be working with ownedNodes elsewhere
-					ownedNodes.add(target);
-				}
+				this.sendMessage(target, Message.M_S);
 			}
 		}
 	}
@@ -488,11 +487,7 @@ public class NodeRunner5 implements Runnable {
 			child_inactive.remove(crashedNode);
 		}
 
-		// node can appear multiple times in ownedNodes
 		num_unack_msgs[crashedNode] = 0;
-		while (ownedNodes.contains(crashedNode)) {
-			ownedNodes.removeElement(crashedNode);
-		}
 		if (owned && ownedBy.contains(crashedNode)) { // node was owned by crashed node
 			ownedBy.removeElement(crashedNode);
 			if (ownedBy.isEmpty()) {
