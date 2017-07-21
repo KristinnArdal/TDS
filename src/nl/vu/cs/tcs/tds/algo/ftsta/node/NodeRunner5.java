@@ -26,6 +26,7 @@ public class NodeRunner5 implements Runnable {
 	private final int nnodes;
 	private final Network5 network;
 	private Random random = new Random();
+	private int root;
 
 	// state of the node
 	private boolean idle = true;
@@ -64,6 +65,7 @@ public class NodeRunner5 implements Runnable {
 	public NodeRunner5(int nodeID, int nnodes, Network5 network, boolean initiallyActive) {
 		this.nodeID = nodeID;
 		this.nnodes = nnodes;
+		this.root = 0;
 		this.network = network;
 		this.ownedBy = new Vector<Integer>();
 		this.rAckNext = new Vector<Integer>();
@@ -93,7 +95,7 @@ public class NodeRunner5 implements Runnable {
 	 */
 
 	public int getId() { return this.nodeID; }
-	public synchronized boolean isRoot() { return this.calculateRoot() == this.nodeID; }
+	public synchronized boolean isRoot() { return root == this.nodeID; }
 	public synchronized int getParent() { return this.parent; }
 	public synchronized void setParent(int parent) { this.parent = parent; }
 	public HashSet<Integer> getCRASHED() { return CRASHED; }
@@ -132,9 +134,12 @@ public class NodeRunner5 implements Runnable {
 	}
 
 	private int calculateRoot() {
-		for (int i = 0; i < nnodes; i++) {
-			if (!CRASHED.contains(i))
+		for (int i = root; i < nnodes; i++) {
+			if (!CRASHED.contains(i)) {
+				root = i;
+				parent = i; // root has parent as itself in this implementation
 				return i;
+			}
 		}
 		return -1; // should never happen
 	}
@@ -324,11 +329,11 @@ public class NodeRunner5 implements Runnable {
 			case Message.CONN_REJ:
 				break;
 			case Message.DCONN:
-				if (children.contains(sender)) {
-					children.remove(sender);
-					if (rAckNext.contains(sender)) { rAckNext.removeElement(sender); }
-					child_inactive.remove(sender);
-				}
+				//if (children.contains(sender)) {
+				//	children.remove(sender);
+				//	if (rAckNext.contains(sender)) { rAckNext.removeElement(sender); }
+				//	child_inactive.remove(sender);
+				//}
 				break;
 			default: // Should not happen
 				break;
@@ -483,42 +488,29 @@ public class NodeRunner5 implements Runnable {
 		// remove crashed node from all lists that might contain it
 		if (children.contains(crashedNode)) {
 			children.remove(crashedNode);
-			if (rAckNext.contains(crashedNode)) { rAckNext.removeElement(crashedNode); }
+			while (rAckNext.contains(crashedNode)) { rAckNext.removeElement(crashedNode); }
 			child_inactive.remove(crashedNode);
 		}
 
 		num_unack_msgs[crashedNode] = 0;
-		if (owned && ownedBy.contains(crashedNode)) { // node was owned by crashed node
-			ownedBy.removeElement(crashedNode);
-			if (ownedBy.isEmpty()) {
-				owned = false;
-			}
+		while (ownedBy.contains(crashedNode)) { ownedBy.removeElement(crashedNode); }
+		if (ownedBy.isEmpty()) {
+			owned = false;
 		}
 
 		updateCurrSN(CRASHED.size());
 
-
-		if (this.isRoot() && this.parent != this.nodeID) {
-			if (this.parent != crashedNode) //Only send a DCONN if the node has not crashed
-				sendMessage(this.parent, Message.DCONN);
-			this.parent = this.nodeID;
-			if (owned) {
-				for (int node : ownedBy) {
-					this.sendMessage(node, Message.M_ACK);
-				}
-				this.owned = false;
-				ownedBy.clear();
+		if (crashedNode == root) {
+			calculateRoot();
+			if (children.contains(root)) {
+				children.remove(root);
+				while (rAckNext.contains(root)) { rAckNext.removeElement(root); }
+				child_inactive.remove(root);
 			}
-			for (int nextNode : rAckNext) {
-				this.sendMessage(nextNode, Message.R_ACK);
-			}
-			rAckNext.clear();
 		}
-		else if (this.parent == crashedNode) {
-			this.parent = calculateRoot();
-			writeString("New parent: " + this.parent);
-			sendMessage(this.parent, Message.CONN_S);
-			this.inactive = false;
+		if (crashedNode == parent & !isRoot()) {
+			parent = root;
+			sendMessage(parent, Message.CONN_S);
 		}
 		update();
 	}
