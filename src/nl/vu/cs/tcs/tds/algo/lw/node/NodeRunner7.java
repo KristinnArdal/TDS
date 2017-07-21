@@ -188,20 +188,20 @@ public class NodeRunner7 implements Runnable {
 	}
 
 	private synchronized void respond_major() {
-		writeString("child_count : " + child_count);
-		writeString("out : " + Arrays.toString(out));
+		// writeString("child_count : " + child_count);
+		// writeString("out : " + Arrays.toString(out));
 		if (child_count == 0) {
-			for (int i = 0; i < nnodes; i++) {
-				if (i != parent && !DF.contains(i) && in[i] != 0) {
-					writeString("in[" + i + "]: " + in[i]);
-					return;
-				}
-			}
-			if (root) {
-				writeString("DF: " + DF);
-				writeString("KF: " + KF);
-				writeString("numFaulty: " + Arrays.toString(numFaulty));
-			}
+			// for (int i = 0; i < nnodes; i++) {
+			// 	if (i != parent && !DF.contains(i) && in[i] != 0) {
+			// 		writeString("in[" + i + "]: " + in[i]);
+			// 		return;
+			// 	}
+			// }
+			// if (root) {
+			// 	writeString("DF: " + DF);
+			// 	writeString("KF: " + KF);
+			// 	writeString("numFaulty: " + Arrays.toString(numFaulty));
+			// }
 			
 			if (!root) {
 				sendMessage(parent, Type.ACK, in[parent]);
