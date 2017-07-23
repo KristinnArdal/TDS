@@ -158,7 +158,8 @@ public class NodeRunner5 implements Runnable {
 
 	public synchronized void crash() {
 		writeString("I CRASHED");
-		this.setIdle();
+		// this.setIdle();
+		this.idle = true;
 		this.setInactive();
 		this.mustStop = true;
 	}

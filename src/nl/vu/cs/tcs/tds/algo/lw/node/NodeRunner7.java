@@ -107,6 +107,7 @@ public class NodeRunner7 implements Runnable {
 	}
 
 	public synchronized void receiveMessage(Message message) {
+		if (mustStop) { return; }
 		Type type = message.getType();
 		int sender = message.getSender();
 		int value = message.getValue();
@@ -203,7 +204,7 @@ public class NodeRunner7 implements Runnable {
 			// 	writeString("numFaulty: " + Arrays.toString(numFaulty));
 			// }
 			
-			if (!root) {
+			if (!root & inTree) {
 				sendMessage(parent, Type.ACK, in[parent]);
 				in[parent] = 0;
 				parent = -1;
@@ -275,7 +276,8 @@ public class NodeRunner7 implements Runnable {
 
 	public synchronized void crash() {
 		writeString("I CRASHED");
-		this.setPassive();
+		// this.setPassive();
+		this.active = false;
 		this.mustStop = true;
 		this.inTree = false;
 	}
@@ -308,6 +310,5 @@ public class NodeRunner7 implements Runnable {
 			respond_major();
 		}
 	}
-
 
 }

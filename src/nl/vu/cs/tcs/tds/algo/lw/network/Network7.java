@@ -69,13 +69,39 @@ public class Network7 {
 		return max_messages == -1 || nrBMessages < max_messages;
 	}
 
+	public void returnFlush(final int destination, final Message message) {
+			final int delay = random.nextInt(MAX_MESSAGE_DELAY);
+			ThreadPool.createNew(new Runnable() {
+				@Override
+				public void run() {
+					do {
+						try {
+							Thread.sleep(50);
+						} catch (InterruptedException e) {
+							//ignore
+						}
+					} while (!isZeroMessageCount(destination, message.getSender()));
+
+					try {
+						Thread.sleep(delay);
+					} catch (InterruptedException e) {
+						// ignore
+					}
+					final int sender = message.getSender();
+					message.setSender(destination);
+					nodeRunners[sender].receiveMessage(message);
+				}
+			}, "Sender");
+			return;
+		}
+
 	public void sendMessage(final int destination, final Message message) {
 		if (message.getType() == Message.Type.RFLUSH) {
 			// wait until all messages have been send from destination to the sender of the flush message
 			//TDS.writeString(7, "[NETWORK]: sender - " + message.getSender() + ", destination - " + destination);
 			do {
 				try {
-					Thread.sleep(10);
+					Thread.sleep(50);
 				} catch (InterruptedException e) {
 					//ignore
 				}
@@ -105,11 +131,13 @@ public class Network7 {
 			nrCMessages += 1;
 		}
 
-		if (crashedNodes.contains(destination)) {
-			return;
-		}
-		else {
-			incMessageCount(message.getSender(), destination);
+		synchronized(this) {
+			if (crashedNodes.contains(destination)) {
+				return;
+			}
+			else {
+				incMessageCount(message.getSender(), destination);
+			}
 		}
 
 		final int delay = random.nextInt(MAX_MESSAGE_DELAY);
@@ -183,14 +211,19 @@ public class Network7 {
 		message_count[source][destination]--;
 	}
 
-	private synchronized boolean isZeroMessageCount(int source, int destination) {
+	private boolean isZeroMessageCount(int source, int destination) {
 		return message_count[source][destination] == 0;
 	}
 
-	public synchronized void crash(int nodeID) {
+	public synchronized void crash(final int nodeID) {
 		if(nodeRunners[nodeID] != null) {
-			nodeRunners[nodeID].crash();
 			crashedNodes.add(nodeID);
+			ThreadPool.createNew(new Runnable() {
+				@Override
+				public void run() {
+					nodeRunners[nodeID].crash();
+				}
+			}, "crasher");
 		}
 	}
 
